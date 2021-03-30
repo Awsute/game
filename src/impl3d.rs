@@ -42,9 +42,21 @@ impl Vec3 for [f32;3]{
 
 trait Tri3d{
     fn normal(&self)->[f32;3];
+    fn translate(&self, t:[f32;3])->[[f32;3];3];
+    fn scale(&self, t:[f32;3])->[[f32;3];3];
+    fn center(&self)->[f32;3];
 }
 impl Tri3d for [[f32;3];3]{
     fn normal(&self)->[f32;3]{
         return self[1].subtract(self[0]).cross_product(self[2].subtract(self[0])).normalize();//sheeeesh
+    }
+    fn translate(&self, t : [f32;3])->[[f32;3];3]{
+        return [self[0].add(t), self[1].add(t), self[2].add(t)];
+    }
+    fn scale(&self, t : [f32;3])->[[f32;3];3]{
+        return [self[0].scale(t), self[1].scale(t), self[2].scale(t)];
+    }
+    fn center(&self)->[f32;3]{
+        return self[0].add(self[1].add(self[2])).scale([1.0/3.0, 1.0/3.0, 1.0/3.0])
     }
 }
