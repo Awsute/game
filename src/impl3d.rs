@@ -13,7 +13,7 @@ impl Vec3 for [f32;3]{
         return [self[0]*scalar[0], self[1]*scalar[1], self[2]*scalar[2]];
     }
     fn add(&self, a : [f32;3])->[f32;3]{
-        return [self[0]*a[0], self[1]*a[1], self[2]*a[2]];
+        return [self[0]+a[0], self[1]+a[1], self[2]+a[2]];
     }
     fn subtract(&self, a : [f32;3])->[f32;3]{
         return [self[0]-a[0], self[1]-a[1], self[2]-a[2]];
@@ -40,7 +40,7 @@ impl Vec3 for [f32;3]{
     }
 }
 
-trait Tri3d{
+pub trait Tri3d{
     fn normal(&self)->[f32;3];
     fn translate(&self, t:[f32;3])->[[f32;3];3];
     fn scale(&self, t:[f32;3])->[[f32;3];3];
