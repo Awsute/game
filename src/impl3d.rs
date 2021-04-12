@@ -4,6 +4,7 @@ pub trait Vec3{
     fn subtract(&self, a : Self)->Self;
     fn magnitude(&self)->f32;
     fn normalize(&self)->Self;
+    fn negative(&self)->Self;
     fn cross_product(&self, c : Self)->Self;
     fn dot_product(&self, d : Self)->f32;
     fn multiply_mat(&self, mat : [[f32;3];3])->Self;
@@ -25,8 +26,11 @@ impl Vec3 for [f32;3]{
         let m = self.magnitude();
         return [self[0]/m, self[1]/m, self[2]/m];
     }
+    fn negative(&self)->[f32;3]{
+        return [-self[0], -self[1], -self[2]];
+    }
     fn cross_product(&self, c: [f32;3])->[f32;3]{
-        return [self[1]*c[2] - c[1]*self[2], -self[2]*c[0] + c[2]*self[0], self[0]*c[1] - c[0]*self[1]];
+        return [-self[1]*c[2] + c[1]*self[2], -self[2]*c[0] + c[2]*self[0], -self[0]*c[1] + c[0]*self[1]];
     }
     fn dot_product(&self, d: Self)->f32{
         return self[0]*d[0] + self[1]*d[1] + self[2]*d[2];
@@ -42,12 +46,16 @@ impl Vec3 for [f32;3]{
 
 pub trait Tri3d{
     fn normal(&self)->[f32;3];
+    fn normal1(&self)->[f32;3];
     fn translate(&self, t:[f32;3])->[[f32;3];3];
     fn scale(&self, t:[f32;3])->[[f32;3];3];
     fn center(&self)->[f32;3];
 }
 impl Tri3d for [[f32;3];3]{
     fn normal(&self)->[f32;3]{
+        return self[2].subtract(self[0]).cross_product(self[1].subtract(self[0])).normalize();//sheeeesh
+    }
+    fn normal1(&self)->[f32;3]{
         return self[1].subtract(self[0]).cross_product(self[2].subtract(self[0])).normalize();//sheeeesh
     }
     fn translate(&self, t : [f32;3])->[[f32;3];3]{
