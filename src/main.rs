@@ -41,7 +41,8 @@ struct Camera{
     pos : [f32;3],
     rot : [f32;3],
     vel : [f32;3],
-    rot_vel : [f32;3]
+    rot_vel : [f32;3],
+    vll : f32
 }
 struct Engine{
     camera : Camera,
@@ -96,13 +97,13 @@ impl Engine{
 
 
 trait draw_tri{
-    fn draw_triangle(&mut self, p1:Point, p2:Point, p3:Point, c : Color);
+    fn draw_triangle(&mut self, p1:[i16;2], p2:[i16;2], p3:[i16;2], c : Color);
 }
 impl draw_tri for WindowCanvas{
-    fn draw_triangle(&mut self, p1 : Point, p2 : Point, p3 : Point, c : Color){
+    fn draw_triangle(&mut self, p1 : [i16;2], p2 : [i16;2], p3 : [i16;2], c : Color){
         let result = self.filled_polygon(
-            &[p1.x as i16, p2.x as i16, p3.x as i16], 
-            &[p1.y as i16, p2.y as i16, p3.y as i16], 
+            &[p1[0], p2[0], p3[0]], 
+            &[p1[1], p2[1], p3[1]], 
             c
         );
     }
@@ -205,18 +206,17 @@ impl Object{
     fn rotate_point(&self, deg : [f32;3], point : [f32;3])->Self{
         let mut ts = self.tris.clone();
         for i in 0..ts.len(){
-            for p in 0..3{
-                ts[i][p] = ts[i][p].subtract(point);
-                if deg[2] != 0.0{
-                    ts[i][p] = ts[i][p].multiply_mat(Engine::z_rot(deg[2]));
-                }
-                if deg[1] != 0.0{
-                    ts[i][p] = ts[i][p].multiply_mat(Engine::y_rot(deg[1]));
-                }
-                if deg[0] != 0.0{
-                    ts[i][p] = ts[i][p].multiply_mat(Engine::x_rot(deg[0]));
-                }
+            ts[i] = ts[i].translate(point.negative());
+            if deg[2] != 0.0{
+                ts[i] = ts[i].multiply_mat(Engine::z_rot(deg[2]));
             }
+            if deg[1] != 0.0{
+                ts[i] = ts[i].multiply_mat(Engine::y_rot(deg[1]));
+            }
+            if deg[0] != 0.0{
+                ts[i] = ts[i].multiply_mat(Engine::x_rot(deg[0]));
+            }
+            ts[i] = ts[i].translate(point);
         }
         return Object{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel};
     }
@@ -232,7 +232,6 @@ impl Object{
 pub const FPS: f32 = 60.0;
 
 fn main() {
-
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let audio_subsystem = sdl_context.audio().unwrap();
@@ -255,7 +254,8 @@ fn main() {
     let screen_height = canvas.output_size().unwrap().1 as i32;
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
-    let mut obj = Object::load_obj_file("assets/cube.obj".to_string()).translate([0.0, 0.0, 15.0]);
+    let mut obj = Object::load_obj_file("assets/character.obj".to_string()).scale([25.0, 25.0, 25.0]).translate([0.0, 0.0, 15.0]);
+    obj.tris = obj.sort_tris();
     let mut objs : Vec<Object> = Vec::new();
     objs.push(obj);
     
@@ -264,7 +264,8 @@ fn main() {
         pos : [0.0, 0.0, 0.0],
         rot : [0.0, 0.0, 0.0],
         vel : [0.0, 0.0, 0.0],
-        rot_vel : [0.0, 0.0, 0.0]
+        rot_vel : [0.0, 0.0, 0.0],
+        vll: 90_f32.to_radians()
     };
     let mut engine = Engine{
         camera : player_cam,
@@ -276,7 +277,7 @@ fn main() {
 
     };
     let cspeed = 10.0;
-    let rspeed = 60.0*(std::f32::consts::PI/180.0);
+    let rspeed = 60.0_f32.to_radians();
     let mat3d = engine.matrix();
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
@@ -329,7 +330,7 @@ fn main() {
                 
                 //--------------ROTATE--------------
                 Event::KeyDown {keycode: Some(Keycode::Up), .. } => {
-                    if engine.camera.rot[0] < engine.camera.fov.to_radians()/2.0{
+                    if engine.camera.rot[0] > (-engine.camera.vll)%360_f32.to_radians(){
                         engine.camera.rot_vel[0] = -rspeed;
                     } else {
                         engine.camera.rot_vel[0] = 0.0;
@@ -339,7 +340,7 @@ fn main() {
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Down), .. } => {
-                    if engine.camera.rot[0] > -engine.camera.fov.to_radians()/2.0{
+                    if engine.camera.rot[0] < (engine.camera.vll)%360_f32.to_radians(){
                         engine.camera.rot_vel[0] = rspeed;
                     } else {
                         engine.camera.rot_vel[0] = 0.0;
@@ -367,6 +368,7 @@ fn main() {
                 Event::MouseButtonDown{mouse_btn : MouseButton::Left, ..} => {
 
                 },
+
                 _ => {}
             }
         }
@@ -396,10 +398,11 @@ fn main() {
             
             
             let mc = |i : f32| -> bool {i > engine.clip_distance || i < engine.render_distance};
+            let light = [0.0, 0.0, -1.0].normalize();
             for tri in &engine.objects[i].tris{
                 let normal = tri.normal();
-                let light = [0.0, 0.0, -1.0].normalize();
-                if normal.dot_product(tri[0]) <= 0.0{
+                
+                if normal.dot_product(tri[0]) < 0.0{
                     let mut j : [[f32;3];3] = [[0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,0.0]];
                     let tri = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0]);
                     for i in 0..3{
@@ -410,13 +413,13 @@ fn main() {
                         j[i][2] = tri[i][2];
                     }
                     if mc(j[0][2])&&mc(j[1][2])&&mc(j[2][2]){
-                        let dp = normal.dot_product(light)/2.0;
+                        let dp = normal.dot_product(light);
                         if dp >= 0.0{
                             
                             canvas.draw_triangle(
-                                Point::new((j[0][0]/j[0][2]+engine.window_width/2.0) as i32, (j[0][1]/j[0][2]+engine.window_height/2.0) as i32),     
-                                Point::new((j[1][0]/j[1][2]+engine.window_width/2.0) as i32, (j[1][1]/j[1][2]+engine.window_height/2.0) as i32),
-                                Point::new((j[2][0]/j[2][2]+engine.window_width/2.0) as i32, (j[2][1]/j[2][2]+engine.window_height/2.0) as i32),
+                                [(j[0][0]/j[0][2]+engine.window_width/2.0) as i16, (j[0][1]/j[0][2]+engine.window_height/2.0) as i16],     
+                                [(j[1][0]/j[1][2]+engine.window_width/2.0) as i16, (j[1][1]/j[1][2]+engine.window_height/2.0) as i16],
+                                [(j[2][0]/j[2][2]+engine.window_width/2.0) as i16, (j[2][1]/j[2][2]+engine.window_height/2.0) as i16],
                                 Color::from(((255.0*dp) as u8, (255.0*dp) as u8, (255.0*dp) as u8))
                             );
                         }
