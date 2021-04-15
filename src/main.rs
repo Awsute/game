@@ -19,9 +19,11 @@ use std::any::{Any, TypeId};
 use std::path::Path;
 use std::borrow::Borrow;
 use sdl2::gfx::primitives::DrawRenderer;
+use sdl2::gfx::framerate::FPSManager;
 mod impl3d;
 use impl3d::Vec3;
 use impl3d::Tri3d;
+
 
 fn gen_terrain(start : [f32;4], end : [f32;4], increment : f32, func : &dyn Fn(f32, f32)->f32)->Vec<[f32;4]>{
     let mut r : Vec<[f32;4]> = Vec::new();
@@ -145,9 +147,17 @@ impl Engine{
 
 trait draw_tri{
     fn draw_triangle(&mut self, p1:[i16;2], p2:[i16;2], p3:[i16;2], c : Color);
+    fn fill_triangle(&mut self, p1:[i16;2], p2:[i16;2], p3:[i16;2], c : Color);
 }
 impl draw_tri for WindowCanvas{
     fn draw_triangle(&mut self, p1 : [i16;2], p2 : [i16;2], p3 : [i16;2], c : Color){
+        let result = self.polygon(
+            &[p1[0], p2[0], p3[0]], 
+            &[p1[1], p2[1], p3[1]], 
+            c
+        );
+    }
+    fn fill_triangle(&mut self, p1 : [i16;2], p2 : [i16;2], p3 : [i16;2], c : Color){
         let result = self.filled_polygon(
             &[p1[0], p2[0], p3[0]], 
             &[p1[1], p2[1], p3[1]], 
@@ -244,16 +254,20 @@ impl Object{
 }
 
 
-pub const FPS: f32 = 60.0;
+
 
 fn main() {
+    let mut fps_manager = FPSManager::new();
+    fps_manager.set_framerate(60);
+
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let audio_subsystem = sdl_context.audio().unwrap();
     let sdl_image_context = image::init(image::InitFlag::all());
 
     let mut window = video_subsystem.window("game", 500, 500)
-        //.fullscreen_desktop()
+        .fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -270,15 +284,12 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut objs : Vec<Object> = Vec::new();
-    
+    let max_fps = 60_u32;
 
-    
-    objs.push(Object::load_obj_file("assets/character.obj".to_string()).scale([10.0, 10.0, 10.0, 1.0]).translate([0.0, 0.0, 15.0, 0.0]));
-    objs[0].rot_vel = [0.0, 0.0, 60_f32.to_radians(), 0.0];
-    objs.push(Object::load_obj_file("assets/character.obj".to_string()).scale([10.0, 10.0, 10.0, 1.0]).translate([20.0, 0.0, 15.0, 0.0]));
-    objs[1].rot_vel = [0.0, 0.0, 60_f32.to_radians(), 0.0];
-    objs.push(Object::load_obj_file("assets/character.obj".to_string()).scale([10.0, 10.0, 10.0, 1.0]).translate([-20.0, 0.0, 15.0, 0.0]));
-    objs[2].rot_vel = [0.0, 0.0, 60_f32.to_radians(), 0.0];
+    for i in 0..3{
+        objs.push(Object::load_obj_file("assets/cube.obj".to_string()).scale([1.0, 1.0, 1.0, 1.0]).translate([i as f32 * 5.0, 0.0, 15.0, 0.0]));
+        objs[i].rot_vel = [0.0, 0.0, 60_f32.to_radians(), 0.0];
+    }
     let mut player_cam = Camera{
         fov : 75.0,
         pos : [0.0, 0.0, 0.0, 1.0],
@@ -299,7 +310,10 @@ fn main() {
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = engine.matrix3d();
+    let mut FPS = max_fps as f32;
     'running: loop {
+        //std::thread::sleep(std::time::Duration::from_millis(1000/max_fps as u64));
+
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
         
@@ -393,7 +407,8 @@ fn main() {
         }
         // The rest of the game loop goes here...
         // ok
-
+        
+        
         let cam = engine.camera;
         engine.camera.rot = cam.rot.add(cam.rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
 
@@ -405,11 +420,13 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-
+        let light = [0.0, 0.0, -1.0, 1.0].normalize();
         for i in 0..engine.objects.len(){
             
             let center = engine.objects[i].center();
-            engine.objects[i] = engine.objects[i].translate(engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
+            if engine.objects[i].vel.magnitude() != 0.0{
+                engine.objects[i] = engine.objects[i].translate(engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
+            }
             if engine.objects[i].rot_vel.magnitude() != 0.0{
                 engine.objects[i] = engine.objects[i].rotate_point(engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center);
             }
@@ -417,9 +434,8 @@ fn main() {
 
             let mut obj = engine.objects[i].rotate_point(cam.rot.negative(), cam.pos).translate(cam.pos.negative());
             obj.sort_tris();
-            let mc = |i : f32| -> bool {i > engine.clip_distance || i < engine.render_distance};
             
-            let light = [0.0, 0.0, -1.0, 1.0].normalize();
+            
             for tri in obj.tris{
                 let normal = tri.normal();
                 let c = tri.center()[2];
@@ -429,7 +445,7 @@ fn main() {
                         let t = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0, 1.0]).multiply_mat(mat3d);
                         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
                         let t03 = t[0][3]; let t13 = t[1][3]; let t23 = t[2][3]; let c = (255.0*dp) as u8;
-                        canvas.draw_triangle(
+                        canvas.fill_triangle(
                             [(t[0][0]/t03+ew) as i16, (t[0][1]/t03+eh) as i16],     
                             [(t[1][0]/t13+ew) as i16, (t[1][1]/t13+eh) as i16],
                             [(t[2][0]/t23+ew) as i16, (t[2][1]/t23+eh) as i16],
@@ -439,8 +455,25 @@ fn main() {
                 }
             }   
         }
-        
-        std::thread::sleep(std::time::Duration::from_millis((1000.0/FPS) as u64));
+        let del = fps_manager.delay();
+        if del != 0{
+            FPS = (max_fps - (100/del)%max_fps) as f32;
+            if FPS == 0.0{
+                FPS = 1.0;
+            }
+        } else {
+            FPS = max_fps as f32;
+        }
+        fps_manager.set_framerate(FPS as u32).unwrap();
+        canvas.string(
+            5,
+            5,
+            &format!("FPS: {}", FPS).to_string(),
+            Color::WHITE
+        );
         canvas.present();
+
+        
+
     }
 }
