@@ -31,7 +31,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
 
 [[package]]
-name = "rust3dgame"
+name = "rust3denginetest"
 version = "0.1.0"
 dependencies = [
  "sdl2",
