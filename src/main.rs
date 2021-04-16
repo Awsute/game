@@ -253,7 +253,11 @@ impl Object{
     }
 }
 
-
+fn sort_objs(engine : &mut Engine){
+    let r = engine.camera.rot.negative();
+    let p = engine.camera.pos;
+    &engine.objects.sort_by(|a, b| b.rotate_point(r, p).translate(p.negative()).center().magnitude().partial_cmp(&a.rotate_point(r, p).translate(p.negative()).center().magnitude()).unwrap());
+}
 
 
 fn main() {
@@ -271,8 +275,8 @@ fn main() {
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
-    //let window_texture : sdl2::surface::Surface = image::LoadSurface::from_file(Path::new("travisScot.png")).unwrap();
-    //window.set_icon(window_texture);
+    let window_texture : sdl2::surface::Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
+    window.set_icon(window_texture);
     
     let mut canvas : WindowCanvas = window
         .into_canvas()
@@ -288,10 +292,10 @@ fn main() {
 
     for i in 0..3{
         objs.push(Object::load_obj_file("assets/cube.obj".to_string()).scale([1.0, 1.0, 1.0, 1.0]).translate([i as f32 * 5.0, 0.0, 15.0, 0.0]));
-        objs[i].rot_vel = [0.0, 0.0, 60_f32.to_radians(), 0.0];
+        objs[i].rot_vel = [0.0, 0.0, 90_f32.to_radians(), 0.0];
     }
     let mut player_cam = Camera{
-        fov : 75.0,
+        fov : 90.0,
         pos : [0.0, 0.0, 0.0, 1.0],
         rot : [0.0, 0.0, 0.0, 0.0],
         vel : [0.0, 0.0, 0.0, 0.0],
@@ -312,7 +316,7 @@ fn main() {
     let mat3d = engine.matrix3d();
     let mut FPS = max_fps as f32;
     'running: loop {
-        //std::thread::sleep(std::time::Duration::from_millis(1000/max_fps as u64));
+        
 
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
@@ -411,7 +415,7 @@ fn main() {
         
         let cam = engine.camera;
         engine.camera.rot = cam.rot.add(cam.rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
-
+        sort_objs(&mut engine);
         engine.camera.pos = cam.pos.add(
             cam.vel.multiply_mat([
                 [engine.camera.rot[1].cos(), engine.camera.rot[2].sin(), -engine.camera.rot[1].sin(), 0.0],
@@ -455,24 +459,23 @@ fn main() {
                 }
             }   
         }
-        let del = fps_manager.delay();
-        if del != 0{
-            FPS = (max_fps - (100/del)%max_fps) as f32;
-            if FPS == 0.0{
-                FPS = 1.0;
-            }
-        } else {
-            FPS = max_fps as f32;
-        }
-        fps_manager.set_framerate(FPS as u32).unwrap();
+
         canvas.string(
             5,
             5,
             &format!("FPS: {}", FPS).to_string(),
             Color::WHITE
         );
+        let del = fps_manager.delay();
         canvas.present();
-
+        
+        if del != 0{
+            FPS = (max_fps-100/del) as f32;
+        } else {
+            FPS = 1.0;
+        }
+        fps_manager.set_framerate(FPS as u32).unwrap();
+        //std::thread::sleep(std::time::Duration::from_millis(1000/max_fps as u64));
         
 
     }
