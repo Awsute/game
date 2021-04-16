@@ -290,8 +290,8 @@ fn main() {
     let mut objs : Vec<Object> = Vec::new();
     let max_fps = 60_u32;
 
-    for i in 0..3{
-        objs.push(Object::load_obj_file("assets/cube.obj".to_string()).scale([1.0, 1.0, 1.0, 1.0]).translate([i as f32 * 5.0, 0.0, 15.0, 0.0]));
+    for i in 0..1{
+        objs.push(Object::load_obj_file("assets/teapot.obj".to_string()).scale([1.0, 1.0, 1.0, 1.0]).translate([i as f32 * 5.0, 0.0, 15.0, 0.0]));
         objs[i].rot_vel = [0.0, 0.0, 90_f32.to_radians(), 0.0];
     }
     let mut player_cam = Camera{
@@ -316,7 +316,7 @@ fn main() {
     let mat3d = engine.matrix3d();
     let mut FPS = max_fps as f32;
     'running: loop {
-        
+        FPS = fps_manager.get_framerate() as f32;
 
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
@@ -460,23 +460,19 @@ fn main() {
             }   
         }
 
+
+        fps_manager.set_framerate(max_fps);
+        let del = fps_manager.delay();
+        fps_manager.set_framerate(1000/del).unwrap();
         canvas.string(
             5,
             5,
-            &format!("FPS: {}", FPS).to_string(),
+            &format!("FPS: {}", fps_manager.get_framerate()).to_string(),
             Color::WHITE
         );
-        let del = fps_manager.delay();
+        
+        
+        
         canvas.present();
-        
-        if del != 0{
-            FPS = (max_fps-100/del) as f32;
-        } else {
-            FPS = 1.0;
-        }
-        fps_manager.set_framerate(FPS as u32).unwrap();
-        //std::thread::sleep(std::time::Duration::from_millis(1000/max_fps as u64));
-        
-
     }
 }
