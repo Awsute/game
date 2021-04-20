@@ -1,4 +1,3 @@
-use std::ops;
 pub trait Vec3{
     fn scale(&self, scalar : Self)->Self;
     fn add(&self, a : Self)->Self;
@@ -51,6 +50,7 @@ pub trait Tri3d{
     fn scale(&self, t:[f32;4])->Self;
     fn center(&self)->[f32;4];
     fn multiply_mat(&self, m:[[f32;4];4])->Self;
+    fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4])->Self;
 }
 impl Tri3d for [[f32;4];3]{
     fn normal(&self)->[f32;4]{
@@ -71,5 +71,26 @@ impl Tri3d for [[f32;4];3]{
             self[1].multiply_mat(m),
             self[2].multiply_mat(m)
         ];
+    }
+    fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4], center : [f32;4])->Self{
+        let mut t = i;
+        if scalar[0] != 0.0 || scalar[1] != 0.0 || scalar[2] != 0.0{
+            t = t.translate(center.negative()).scale(scalar).translate(center);
+        }
+        if rot[0] != 0.0 || rot[1] != 0.0 || rot[2] != 0.0{
+            t = t.translate(rot_point.negative());
+            if rot[2] != 0.0{
+                t = t.multiply_mat(Engine::z_rot(rot[2]));
+            }
+            if rot[1] != 0.0{
+                t = t.multiply_mat(Engine::y_rot(rot[1]));
+            }
+            if rot[0] != 0.0{
+                t = t.multiply_mat(Engine::x_rot(rot[0]));
+            }
+            t = t.translate(rot_point)
+        }
+        t = t.translate(trans);
+        return t;
     }
 }
