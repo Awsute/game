@@ -12,3 +12,6 @@ incremental = true
 version = "0.34.3"
 default-features = false
 features = ["image", "gfx"]
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs"

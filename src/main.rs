@@ -1,5 +1,6 @@
 //when shipping game, make sure you got everything in the folder with the game
 extern crate sdl2;
+extern crate gl;
 use sdl2::pixels;
 use sdl2::image;
 use image::{LoadSurface};
@@ -22,16 +23,36 @@ use std::borrow::Borrow;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::gfx::framerate::FPSManager;
 
+trait Surf{
+    fn color_at(&self, x:f32, y:f32)->Color;
+}
+impl Surf for Surface<'_>{
+    fn color_at(&self, x: f32, y: f32)->Color{
+        let buf = self.without_lock().unwrap();
+        let u = (x) as usize;
+        let v = (y) as usize;
+        let ind = 3*u+self.pitch() as usize*v;
+        return if ind < buf.len()-2{Color::from((buf[ind], buf[ind+1], buf[ind+2]))} else {Color::BLACK};
+    }
+}
+trait ColFuncs{
+    fn blend(&self, c:Self)->Self;
+}
+impl ColFuncs for Color{
+    fn blend(&self, c:Self)->Self{
+        return Color::from(((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8));
+    }
 
+}
 trait Vec3{
-    fn scale(&self, scalar : Self)->Self;
-    fn add(&self, a : Self)->Self;
-    fn subtract(&self, a : Self)->Self;
+    fn scale(&self, scalar : [f32;4])->Self;
+    fn add(&self, a : [f32;4])->Self;
+    fn subtract(&self, a : [f32;4])->Self;
     fn magnitude(&self)->f32;
     fn normalize(&self)->Self;
     fn negative(&self)->Self;
-    fn cross_product(&self, c : Self)->Self;
-    fn dot_product(&self, d : Self)->f32;
+    fn cross_product(&self, c : [f32;4])->Self;
+    fn dot_product(&self, d : [f32;4])->f32;
     fn multiply_mat(&self, mat : [[f32;4];4])->Self;
 }
 impl Vec3 for [f32;4]{
@@ -69,6 +90,7 @@ impl Vec3 for [f32;4]{
         ];
     }
 }
+
 trait Tri3d{
     fn normal(&self)->[f32;4];
     fn translate(&self, t:[f32;4])->Self;
@@ -77,25 +99,28 @@ trait Tri3d{
     fn multiply_mat(&self, m:[[f32;4];4])->Self;
     fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4], center : [f32;4])->Self;
 }
-impl Tri3d for [[f32;4];3]{
+impl Tri3d for ([[f32;4];3], [[f32;3];3]){
     fn normal(&self)->[f32;4]{
-        return self[2].subtract(self[0]).cross_product(self[1].subtract(self[0])).normalize();//sheeeesh
+        return self.0[2].subtract(self.0[0]).cross_product(self.0[1].subtract(self.0[0])).normalize();//sheeeesh
     }
     fn translate(&self, t : [f32;4])->Self{
-        return [self[0].add(t), self[1].add(t), self[2].add(t)];
+        return ([self.0[0].add(t), self.0[1].add(t), self.0[2].add(t)], self.1);
     }
     fn scale(&self, t : [f32;4])->Self{
-        return [self[0].scale(t), self[1].scale(t), self[2].scale(t)];
+        return ([self.0[0].scale(t), self.0[1].scale(t), self.0[2].scale(t)], self.1);
     }
     fn center(&self)->[f32;4]{
-        return self[0].add(self[1]).add(self[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
+        return self.0[0].add(self.0[1]).add(self.0[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
     }
     fn multiply_mat(&self, m:[[f32;4];4])->Self{
-        return [
-            self[0].multiply_mat(m),
-            self[1].multiply_mat(m),
-            self[2].multiply_mat(m)
-        ];
+        return (
+            [
+                self.0[0].multiply_mat(m),
+                self.0[1].multiply_mat(m),
+                self.0[2].multiply_mat(m)
+            ],
+            self.1
+        );
     }
     fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4], center : [f32;4])->Self{
         let mut t = *self;
@@ -236,56 +261,214 @@ impl Engine{
     }
 
 }
-
+fn max(n1:f32, n2:f32)->f32{
+    return if n1 > n2{n1} else{n2};
+}
+fn min(n1:f32, n2:f32)->f32{
+    return if n1 < n2{n1} else{n2};
+}
 
 
 trait draw_tri{
-    fn draw_triangle(&mut self, p1:[i16;2], p2:[i16;2], p3:[i16;2], c : Color);
-    fn fill_triangle(&mut self, p1:[i16;2], p2:[i16;2], p3:[i16;2], c : Color);
+    fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
+    fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, texture : &Surface);
 }
 impl draw_tri for WindowCanvas{
     #[inline]
-    fn draw_triangle(&mut self, p1 : [i16;2], p2 : [i16;2], p3 : [i16;2], c : Color){
+    fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color){
         self.polygon(
-            &[p1[0], p2[0], p3[0]], 
-            &[p1[1], p2[1], p3[1]], 
+            &[p1[0] as i16, p2[0] as i16, p3[0] as i16], 
+            &[p1[1] as i16, p2[1] as i16, p3[1] as i16], 
             c
         );
     }
-    
-    fn fill_triangle(&mut self, p1 : [i16;2], p2 : [i16;2], p3 : [i16;2], c : Color){
+    #[inline]
+    fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color){
         self.filled_polygon(
-            &[p1[0], p2[0], p3[0]],
-            &[p1[1], p2[1], p3[1]],
+            &[p1[0] as i16, p2[0] as i16, p3[0] as i16],
+            &[p1[1] as i16, p2[1] as i16, p3[1] as i16],
             c
         );
         
-        //let x = [p1[0], p2[0], p3[0]];
-        //let y = [p1[1], p2[1], p3[1]];
-        //let srfc : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
-        //let ret = unsafe{texturedPolygon(self.raw(), 
-        //    x.as_ptr(),
-        //    y.as_ptr(),
-        //    3,
-        //    srfc.raw(),
-        //    0,
-        //    0
-        //)};
+    }
+    #[inline]
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, texture : &Surface){
+        let s = self.output_size().unwrap();
+        let mut c1 = p1;
+        let mut c2 = p2;
+        let mut c3 = p3;
+        let mut i1 = t1;
+        let mut i2 = t2;
+        let mut i3 = t3;
+        let w = texture.width() as u32;
+        let h = texture.height() as u32;
         
+        if c1[1] > c2[1]{
+            std::mem::swap(&mut c1, &mut c2);
+            std::mem::swap(&mut i1, &mut i2);
+        }
+        
+        if c1[1] > c3[1]{
+            std::mem::swap(&mut c1, &mut c3);
+            std::mem::swap(&mut i1, &mut i3);
+        }
+        
+        if c2[1] > c3[1]{
+            std::mem::swap(&mut c2, &mut c3);
+            std::mem::swap(&mut i2, &mut i3);
+        }
+        
+        i1[0] *= w as f32;
+        i2[0] *= w as f32;
+        i3[0] *= w as f32;
+        
+        i1[1] *= h as f32;
+        i2[1] *= h as f32;
+        i3[1] *= h as f32;
+    
+        
+        let mut dax_step = 0.0; let mut dbx_step = 0.0; let mut dcx_step = 0.0;
+        let mut du1_step = 0.0; let mut dv1_step = 0.0; let mut dw1_step = 0.0;
+        let mut du2_step = 0.0; let mut dv2_step = 0.0; let mut dw2_step = 0.0;
+        let mut du3_step = 0.0; let mut dv3_step = 0.0; let mut dw3_step = 0.0;
+        
+        
+        let dya = (c2[1] - c1[1]).abs() as f32;
+        
+        if dya != 0.0{
+            dax_step = (c2[0] - c1[0])/dya;
+            du1_step = (i2[0] - i1[0])/dya;
+            dv1_step = (i2[1] - i1[1])/dya;
+            dw1_step = (i2[2] - i1[2])/dya;
+        }
+        
+        let dyb = (c3[1] - c1[1]).abs() as f32;
+        
+        if dyb != 0.0{
+            dbx_step = (c3[0] - c1[0])/dyb;
+            du2_step = (i3[0] - i1[0])/dyb;
+            dv2_step = (i3[1] - i1[1])/dyb;
+            dw2_step = (i3[2] - i1[2])/dyb;
+        };
+        
+        let dyc = (c3[1] - c2[1]).abs() as f32;
+        
+        if dyc != 0.0{
+            dcx_step = (c3[0] - c2[0])/dyc;
+            du3_step = (i3[0] - i2[0])/dyc;
+            dv3_step = (i3[1] - i2[1])/dyc;
+            dw3_step = (i3[2] - i2[2])/dyc;
+        }
+
+        if dya != 0.0 || dyc != 0.0{            
+            for y in c1[1] as i16..c3[1] as i16{
+                if y > 0 && y < s.1 as i16{
+                    let mut tex_su = i1[0] + (y as f32 - c1[1]) * du1_step;
+                    let mut tex_sv = i1[1] + (y as f32 - c1[1]) * dv1_step;
+                    let mut tex_sw = i1[2] + (y as f32 - c1[1]) * dw1_step;
+    
+                    let mut tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
+                    let mut tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
+                    let mut tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
+
+                    let mut ax = c1[0] + (y as f32 - c1[1]) * dax_step;
+                    let mut bx = c1[0] + (y as f32 - c1[1]) * dbx_step;
+                    
+                    if y as f32 > c2[1]{
+
+                        tex_su = i2[0] + (y as f32 - c2[1]) * du3_step;
+                        tex_sv = i2[1] + (y as f32 - c2[1]) * dv3_step;
+                        tex_sw = i2[2] + (y as f32 - c2[1]) * dw3_step;
+        
+                        tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
+                        tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
+                        tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
+    
+                        ax = c2[0] + (y as f32 - c2[1])*dcx_step;
+                        bx = c1[0] + (y as f32 - c1[1])*dbx_step;
+                    };
+                    if ax > bx{
+                        std::mem::swap(&mut ax, &mut bx);
+                        std::mem::swap(&mut tex_su, &mut tex_eu);
+                        std::mem::swap(&mut tex_sv, &mut tex_ev);
+                        std::mem::swap(&mut tex_sw, &mut tex_ew);
+                    }
+                    
+                    let tstep = 1.0/(bx - ax);
+
+                    for x in ax as i16..bx as i16{
+                        if x > 0 && x < s.0 as i16{
+                            let t = (x as f32-ax)*tstep;
+                            let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
+                            let tex_u = (1.0 - t) * tex_su + t * tex_eu;
+                            let tex_v = (1.0 - t) * tex_sv + t * tex_ev;
+                            
+                            self.pixel(
+                                x,
+                                y, 
+                                texture.color_at(tex_u/tex_w, tex_v/tex_w).blend(c)
+                            );
+                        }
+                        
+                    }
+                }
+            }
+        }
+
+
+        //if dyc != 0.0{
+        //    for y in c2[1] as i16..c3[1] as i16{
+        //        if y > 0 && y < s.1 as i16{
+        //            let mut tex_su = i2[0] + (y as f32 - c2[1]) * du3_step;
+        //            let mut tex_sv = i2[1] + (y as f32 - c2[1]) * dv3_step;
+        //            let mut tex_sw = i2[2] + (y as f32 - c2[1]) * dw3_step;
+    //
+        //            let mut tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
+        //            let mut tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
+        //            let mut tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
+//
+        //            let mut ax = c2[0] + (y as f32 - c2[1])*dcx_step;
+        //            let mut bx = c1[0] + (y as f32 - c1[1])*dbx_step;
+        //            if ax > bx{
+        //                std::mem::swap(&mut ax, &mut bx);
+        //                std::mem::swap(&mut tex_su, &mut tex_eu);
+        //                std::mem::swap(&mut tex_sv, &mut tex_ev);
+        //                std::mem::swap(&mut tex_sw, &mut tex_ew);
+        //            }
+//
+        //            for x in ax as i16..bx as i16{
+        //                if x > 0 && x < s.0 as i16{
+        //                    let t = (x as f32-ax)/(bx - ax);
+        //                    let tex_u = (1.0 - t) * tex_su + t * tex_eu;
+        //                    let tex_v = (1.0 - t) * tex_sv + t * tex_ev;
+        //                    let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
+        //                    self.pixel(
+        //                        x,
+        //                        y, 
+        //                        texture.color_at(tex_u/tex_w, tex_v/tex_w).blend(c)
+        //                    );
+        //                }
+        //                
+        //            }
+        //        }
+        //    }
+        //}
     }
 }
 #[derive(Clone)]
 struct Object{
-    tris : Vec<[[f32;4];3]>,
+    tris : Vec<([[f32;4];3], [[f32;3];3])>,
     rot : [f32;4],
     vel : [f32;4],
     rot_vel : [f32;4]
 }
 
 impl Object{
-    fn new(tris:Vec<[[f32;4];3]>, rot:[f32;4])->Self{
+    fn new(tris:Vec<([[f32;4];3], [[f32;3];3])>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>)->Self{
         return Object{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0]};
     }
+    #[inline]
     fn center(&self)->[f32;4]{
         let mut c = [0.0, 0.0, 0.0, 1.0];
         let n = self.tris.len() as f32;
@@ -294,19 +477,17 @@ impl Object{
         }
         return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
-    #[inline]
-    fn sort_tris(&mut self){
-        &self.tris.sort_by(|a,b| b.center()[2].partial_cmp(&a.center()[2]).unwrap());
-    }
-    fn load_obj_file(file_path:String)->Self{
+
+    fn load_obj_file(file_path:String, texture:bool)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
-        let mut ts : Vec<[[f32;4];3]> = Vec::new();
+        let mut ts : Vec<([[f32;4];3], [[f32;3];3])> = Vec::new();
         let mut points : Vec<[f32;4]> = Vec::new();
-        
+        let mut t_c : Vec<[f32;3]> = Vec::new();
         for line in reader.lines() {
+            
             let ln = Box::leak(line.unwrap().into_boxed_str());
-            let vals : Vec<&str> = ln.split_whitespace().collect();
+            let mut vals : Vec<&str> = ln.split_whitespace().collect();
             if vals.len() > 0{
                 if vals[0].to_string() == "v".to_string() {
                     points.push(
@@ -318,11 +499,48 @@ impl Object{
                         ]
                     );
                 } else if vals[0].to_string() == "f".to_string() {
-                    ts.push(
+                    if texture{
+                        let p1 : Vec<&str> = vals[1].split("/").collect();
+                        let p2 : Vec<&str> = vals[2].split("/").collect();
+                        let p3 : Vec<&str> = vals[3].split("/").collect();
+                        
+                        ts.push(
+                            (
+                                [
+                                    points[p1[0].parse::<usize>().unwrap()-1],
+                                    points[p2[0].parse::<usize>().unwrap()-1],
+                                    points[p3[0].parse::<usize>().unwrap()-1]
+                                ],
+                                [
+                                    t_c[p1[1].parse::<usize>().unwrap()-1],
+                                    t_c[p2[1].parse::<usize>().unwrap()-1],
+                                    t_c[p3[1].parse::<usize>().unwrap()-1]
+                                ]
+                            )
+                        );
+
+                    } else {
+                        ts.push(
+                            (
+                                [
+                                    points[vals[1].parse::<usize>().unwrap()-1],
+                                    points[vals[2].parse::<usize>().unwrap()-1],
+                                    points[vals[3].parse::<usize>().unwrap()-1]
+                                ],
+                                [
+                                    [0.0, 0.0, 0.0],
+                                    [0.0, 0.0, 0.0],
+                                    [0.0, 0.0, 0.0]
+                                ]
+                            )
+                        );
+                    }
+                } else if vals[0].to_string() == "vt".to_string(){
+                    t_c.push(
                         [
-                            points[vals[1].parse::<usize>().unwrap()-1],
-                            points[vals[2].parse::<usize>().unwrap()-1],
-                            points[vals[3].parse::<usize>().unwrap()-1]
+                            vals[1].parse::<f32>().unwrap(), 
+                            vals[1].parse::<f32>().unwrap(), 
+                            1.0
                         ]
                     );
                 }
@@ -367,7 +585,7 @@ impl Object{
         
         let ts = self.tris.iter().map(|&i|{
             return i.upd(scalar, trans, rot, rot_point, center);
-        }).collect::<Vec<[[f32;4];3]>>();
+        }).collect::<Vec<([[f32;4];3], [[f32;3];3])>>();
         return Object{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel};
     }
 }
@@ -377,7 +595,20 @@ fn sort_objs(engine : &mut Engine){
     let p = engine.camera.pos;
     &engine.objects.sort_by(|a, b| b.upd([1.0, 1.0, 1.0, 1.0], p.negative(), r, p).center().magnitude().partial_cmp(&a.upd([1.0, 1.0, 1.0, 1.0], p.negative(), r, p).center().magnitude()).unwrap());
 }
+#[inline]
+fn sort_tris(mut tris : Vec<([[f32;4];3], [[f32;3];3])>)->Vec<([[f32;4];3], [[f32;3];3])>{
+    &tris.sort_by(|a,b| b.center()[2].partial_cmp(&a.center()[2]).unwrap());
+    return tris;
+}
 
+fn find_sdl_gl_driver() -> Option<u32> {
+    for (index, item) in sdl2::render::drivers().enumerate() {
+        if item.name == "opengl" {
+            return Some(index as u32);
+        }
+    }
+    None
+}
 fn main() {
     let mut fps_manager = FPSManager::new();
 
@@ -390,6 +621,7 @@ fn main() {
     let sdl_image_context = image::init(image::InitFlag::all());
 
     let mut window = video_subsystem.window("game", 500, 500)
+        .opengl()
         .fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
@@ -400,11 +632,13 @@ fn main() {
 
     let mut canvas : WindowCanvas = window
         .into_canvas()
+        .index(find_sdl_gl_driver().unwrap())
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
     
-    canvas.set_scale(1.00001, 1.00001);
+    canvas.set_scale(1.0001, 1.0001);
+    canvas.window().gl_set_context_to_current();
     
     let screen_width = canvas.output_size().unwrap().0 as i32;
     let screen_height = canvas.output_size().unwrap().1 as i32;
@@ -427,19 +661,31 @@ fn main() {
         window_width : screen_width as f32,
         objects : Vec::new()
     };
-    for i in 0..25{
-        engine.objects.push(Object::load_obj_file("assets/teapot.obj".to_string()).scale([1.0, 1.0, 1.0, 1.0]).translate([i as f32 * 10.0, 0.0, 5.0, 0.0]));
-        engine.objects[i].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
+    for i in 0..1{
+        engine.objects.push(Object::load_obj_file("assets/textured_cube.obj".to_string(), true).translate([i as f32*5.0, 0.0, 5.0, 0.0]));
+        engine.objects[i].rot_vel = [0.0, 0_f32.to_radians(), 0.0, 1.0];
     }
-
-
+    
+    let dababy_texture : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = engine.matrix3d();
-    
+    let mut depth_buf : Vec<f32> = Vec::new();
+    for i in 0..screen_width*screen_height{
+        depth_buf.push(0.0);
+    }
+    let mut buffer = Vec::new();
+    for y in 0..256 {
+        for x in 0..256 {
+            buffer.push(x as u8);
+            buffer.push(y as u8);
+            buffer.push(0);
+        }
+    }
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
+        
         let FPS = fps_manager.get_framerate() as f32;
 
         for event in event_pump.poll_iter() {
@@ -532,12 +778,11 @@ fn main() {
         }
         //The rest of the game loop goes here...
         //ok
-        if engine.objects.len() > 1{
-            sort_objs(&mut engine);
-        }
+        //sort_objs(&mut engine);
+
         let cam = engine.camera;
         engine.camera.rot = cam.rot.add(cam.rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
-        
+        let travis : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
         engine.camera.pos = cam.pos.add(
             cam.vel.multiply_mat([
                 [engine.camera.rot[1].cos(), engine.camera.rot[2].sin(), -engine.camera.rot[1].sin(), 0.0],
@@ -553,45 +798,64 @@ fn main() {
             let center = engine.objects[i].center();
             
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center);
-            let mut obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
-            obj.sort_tris();
-            
-            for n in 0..obj.tris.len(){
+            let obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
+
+            for mut tri in obj.tris{
                 //engine.objects[i].tris[n] = engine.objects[i].tris[n].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center, center);
-                let tri = obj.tris[n];
                 //obj.tris[n].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos, cam.pos);
                 let normal = tri.normal();
                 let c = tri.center();
-                if normal.dot_product(tri[0]) <= 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
+                if normal.dot_product(tri.0[0]) < 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
                     let dp = normal.dot_product(light);
-                    if dp >= 0.0{
+                    if dp > 0.0{
                         let t = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0, 1.0]).multiply_mat(mat3d);
                         
-                        let t03 = t[0][3]; let t13 = t[1][3]; let t23 = t[2][3]; let c = (255.0*dp) as u8;
-                        let o = [(t[0][0]/t03+ew) as i16, (t[0][1]/t03+eh) as i16];    
-                        let g = [(t[1][0]/t13+ew) as i16, (t[1][1]/t13+eh) as i16];
-                        let h = [(t[2][0]/t23+ew) as i16, (t[2][1]/t23+eh) as i16];
-                        canvas.fill_triangle(
-                            o,     
+                        let t03 = t.0[0][3]; let t13 = t.0[1][3]; let t23 = t.0[2][3]; let c = (255.0*dp) as u8;
+                        let o = [(t.0[0][0]/t03+ew), (t.0[0][1]/t03+eh), t.0[0][2]];    
+                        let g = [(t.0[1][0]/t13+ew), (t.0[1][1]/t13+eh), t.0[1][2]];
+                        let h = [(t.0[2][0]/t23+ew), (t.0[2][1]/t23+eh), t.0[2][2]];
+                        //canvas.fill_triangle(
+                        //    o,     
+                        //    g,
+                        //    h,
+                        //    Color::from((c, c, c))
+                        //);
+
+                        
+                        tri.1[0][1] /= t03;
+                        tri.1[1][1] /= t13;
+                        tri.1[2][1] /= t23;
+                        
+                        tri.1[0][0] /= t03;
+                        tri.1[1][0] /= t13;
+                        tri.1[2][0] /= t23;
+
+                        tri.1[0][2] = 1.0/t03;
+                        tri.1[1][2] = 1.0/t13;
+                        tri.1[2][2] = 1.0/t23;
+                        canvas.textured_triangle(
+                            o,
                             g,
                             h,
-                            Color::from((c, c, c))
+                            tri.1[0],
+                            tri.1[1],
+                            tri.1[2],
+                            Color::from((c, c, c)),
+                            &travis
                         );
-                        
                         //canvas.draw_triangle(
                         //    o,     
                         //    g,
                         //    h,
-                        //    Color::from((0, 0, 0))
+                        //    Color::WHITE
                         //);
-                        
+                                
                     }
                 }
-            }   
+            }
         }
 
 
-        
         fps_manager.set_framerate(max_fps);
         let del = fps_manager.delay();
         fps_manager.set_framerate(1000/(del+1));
@@ -603,8 +867,8 @@ fn main() {
             Color::WHITE
         );
         canvas.present();
-
-
-        
+        //for i in 0..screen_width*screen_height{
+        //    depth_buf[i as usize] = 0.0;
+        //}
     }
 }
