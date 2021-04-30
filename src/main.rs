@@ -30,6 +30,7 @@ impl Surf for Surface<'_>{
     fn color_at(&self, x: f32, y: f32)->Color{
         let buf = self.without_lock().unwrap();
         let u = (x) as usize;
+        //println!("{}, {}", u, x);
         let v = (y) as usize;
         let ind = 3*u+self.pitch() as usize*v;
         return if ind < buf.len()-2{Color::from((buf[ind], buf[ind+1], buf[ind+2]))} else {Color::BLACK};
@@ -301,8 +302,8 @@ impl draw_tri for WindowCanvas{
         let mut i1 = t1;
         let mut i2 = t2;
         let mut i3 = t3;
-        let w = texture.width() as u32;
-        let h = texture.height() as u32;
+        let w = texture.width() as f32;
+        let h = texture.height() as f32;
         
         if c1[1] > c2[1]{
             std::mem::swap(&mut c1, &mut c2);
@@ -319,16 +320,16 @@ impl draw_tri for WindowCanvas{
             std::mem::swap(&mut i2, &mut i3);
         }
         
-        i1[0] *= w as f32;
-        i2[0] *= w as f32;
-        i3[0] *= w as f32;
+        i1[0] *= w;
+        i2[0] *= w;
+        i3[0] *= w;
         
-        i1[1] *= h as f32;
-        i2[1] *= h as f32;
-        i3[1] *= h as f32;
-    
-        
+        i1[1] *= h;
+        i2[1] *= h;
+        i3[1] *= h;
+
         let mut dax_step = 0.0; let mut dbx_step = 0.0; let mut dcx_step = 0.0;
+        let mut daz_step = 0.0; let mut dbz_step = 0.0; let mut dcz_step = 0.0;
         let mut du1_step = 0.0; let mut dv1_step = 0.0; let mut dw1_step = 0.0;
         let mut du2_step = 0.0; let mut dv2_step = 0.0; let mut dw2_step = 0.0;
         let mut du3_step = 0.0; let mut dv3_step = 0.0; let mut dw3_step = 0.0;
@@ -338,6 +339,7 @@ impl draw_tri for WindowCanvas{
         
         if dya != 0.0{
             dax_step = (c2[0] - c1[0])/dya;
+            daz_step = (c2[2] - c1[2])/dya;
             du1_step = (i2[0] - i1[0])/dya;
             dv1_step = (i2[1] - i1[1])/dya;
             dw1_step = (i2[2] - i1[2])/dya;
@@ -347,6 +349,7 @@ impl draw_tri for WindowCanvas{
         
         if dyb != 0.0{
             dbx_step = (c3[0] - c1[0])/dyb;
+            dbz_step = (c3[2] - c1[2])/dyb;
             du2_step = (i3[0] - i1[0])/dyb;
             dv2_step = (i3[1] - i1[1])/dyb;
             dw2_step = (i3[2] - i1[2])/dyb;
@@ -356,6 +359,7 @@ impl draw_tri for WindowCanvas{
         
         if dyc != 0.0{
             dcx_step = (c3[0] - c2[0])/dyc;
+            dcz_step = (c3[2] - c2[2])/dyc;
             du3_step = (i3[0] - i2[0])/dyc;
             dv3_step = (i3[1] - i2[1])/dyc;
             dw3_step = (i3[2] - i2[2])/dyc;
@@ -364,18 +368,29 @@ impl draw_tri for WindowCanvas{
         if dya != 0.0 || dyc != 0.0{            
             for y in c1[1] as i16..c3[1] as i16{
                 if y > 0 && y < s.1 as i16{
-                    let mut tex_su = i1[0] + (y as f32 - c1[1]) * du1_step;
-                    let mut tex_sv = i1[1] + (y as f32 - c1[1]) * dv1_step;
-                    let mut tex_sw = i1[2] + (y as f32 - c1[1]) * dw1_step;
+                    let mut tex_su : f32;
+                    let mut tex_sv : f32;
+                    let mut tex_sw : f32;
     
-                    let mut tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
-                    let mut tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
-                    let mut tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
-
-                    let mut ax = c1[0] + (y as f32 - c1[1]) * dax_step;
-                    let mut bx = c1[0] + (y as f32 - c1[1]) * dbx_step;
+                    let mut tex_eu : f32;
+                    let mut tex_ev : f32;
+                    let mut tex_ew : f32;
                     
-                    if y as f32 > c2[1]{
+                    let mut ax : f32;
+                    let mut bx : f32;
+                    if (y as f32) < c2[1] {
+                        tex_su = i1[0] + (y as f32 - c1[1]) * du1_step;
+                        tex_sv = i1[1] + (y as f32 - c1[1]) * dv1_step;
+                        tex_sw = i1[2] + (y as f32 - c1[1]) * dw1_step;
+        
+                        tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
+                        tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
+                        tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
+                        
+                        ax = c1[0] + (y as f32 - c1[1]) * dax_step;
+                        bx = c1[0] + (y as f32 - c1[1]) * dbx_step;
+
+                    } else {
 
                         tex_su = i2[0] + (y as f32 - c2[1]) * du3_step;
                         tex_sv = i2[1] + (y as f32 - c2[1]) * dv3_step;
@@ -385,9 +400,12 @@ impl draw_tri for WindowCanvas{
                         tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
                         tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
     
-                        ax = c2[0] + (y as f32 - c2[1])*dcx_step;
-                        bx = c1[0] + (y as f32 - c1[1])*dbx_step;
-                    };
+                        ax = c2[0] + (y as f32 - c2[1]) * dcx_step;
+                        bx = c1[0] + (y as f32 - c1[1]) * dbx_step;
+
+
+                    }
+
                     if ax > bx{
                         std::mem::swap(&mut ax, &mut bx);
                         std::mem::swap(&mut tex_su, &mut tex_eu);
@@ -396,14 +414,12 @@ impl draw_tri for WindowCanvas{
                     }
                     
                     let tstep = 1.0/(bx - ax);
-
                     for x in ax as i16..bx as i16{
                         if x > 0 && x < s.0 as i16{
                             let t = (x as f32-ax)*tstep;
                             let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
                             let tex_u = (1.0 - t) * tex_su + t * tex_eu;
                             let tex_v = (1.0 - t) * tex_sv + t * tex_ev;
-                            
                             self.pixel(
                                 x,
                                 y, 
@@ -622,7 +638,7 @@ fn main() {
 
     let mut window = video_subsystem.window("game", 500, 500)
         .opengl()
-        .fullscreen_desktop()
+        //.fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -843,12 +859,12 @@ fn main() {
                             Color::from((c, c, c)),
                             &travis
                         );
-                        //canvas.draw_triangle(
-                        //    o,     
-                        //    g,
-                        //    h,
-                        //    Color::WHITE
-                        //);
+                        canvas.draw_triangle(
+                            o,     
+                            g,
+                            h,
+                            Color::WHITE
+                        );
                                 
                     }
                 }
