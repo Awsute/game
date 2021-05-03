@@ -57,10 +57,11 @@ trait ColFuncs{
     fn avg(&self, c:Self)->Self;
 }
 impl ColFuncs for Color{
+    #[inline]
     fn blend(&self, c:Self)->Self{
         return Color::from(((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8));
-    }
-    
+    }  
+    #[inline]
     fn avg(&self, c:Self)->Self{
         return Color::from((
             ((self.r as u16 + c.r as u16)/2) as u8, 
@@ -115,6 +116,7 @@ impl Vec3 for [f32;4]{
             self[0] * m[0][3] + self[1] * m[1][3] + self[2] * m[2][3] + self[3] * m[3][3]
         ];
     }
+
 }
 
 trait Tri3d{
@@ -295,12 +297,12 @@ fn min(n1:f32, n2:f32)->f32{
 }
 
 
-trait draw_tri{
+trait DrawTri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32);
 }
-impl draw_tri for WindowCanvas{
+impl DrawTri for WindowCanvas{
     #[inline]
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color){
         self.polygon(
@@ -388,7 +390,7 @@ impl draw_tri for WindowCanvas{
         let mut ax : i16;
         let mut bx : i16;
         if dya != 0.0 || dyc != 0.0{           
-            for y in c1[1] as i16..c3[1] as i16{
+            for y in c1[1] as i16+1..c3[1] as i16+1{
                 if y > 0 && y < s.1 as i16{
                     if (y as f32) < c2[1] {
                         let ys = y as f32-c1[1];
@@ -425,12 +427,11 @@ impl draw_tri for WindowCanvas{
                         std::mem::swap(&mut tex_sw, &mut tex_ew);
                     }
                     let tstep = 1.0/(bx as i32 - ax as i32) as f32;
-                    let mut t = 0.0;
+                    
                     for x in ax..bx{
                         if x > 0 && x < s.0 as i16{
-                            
+                            let t = (x as f32-ax as f32)*tstep;
                             let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
-                            let tex_v = (1.0 - t) * tex_sv + t * tex_ev;
                             let ind = 3*(width*
                                     ((1.0 - t) * tex_su + t * tex_eu)/tex_w
                                 ) as usize
@@ -445,8 +446,8 @@ impl draw_tri for WindowCanvas{
                                 col.blend(c)
                             );
                         }
-                        t += tstep;
                     }
+                    
                 }
             }
         }
@@ -671,7 +672,7 @@ fn main() {
         objects : Vec::new()
     };
     for i in 0..1{
-        engine.objects.push(Object::load_obj_file("assets/textured_teapot.obj".to_string(), true).translate([i as f32*5.0, 0.0, 5.0, 0.0]));
+        engine.objects.push(Object::load_obj_file("assets/textured_cube.obj".to_string(), true).translate([i as f32*5.0, 0.0, 5.0, 0.0]));
         engine.objects[i].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     }
     
