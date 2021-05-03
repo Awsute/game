@@ -25,23 +25,48 @@ use sdl2::gfx::framerate::FPSManager;
 
 trait Surf{
     fn color_at(&self, x:f32, y:f32)->Color;
+    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color);
 }
 impl Surf for Surface<'_>{
     fn color_at(&self, x: f32, y: f32)->Color{
         let buf = self.without_lock().unwrap();
-        let u = (x) as usize;
-        //println!("{}, {}", u, x);
-        let v = (y) as usize;
+        let u = (x+0.5) as usize;
+        let v = (y+0.5) as usize;
         let ind = 3*u+self.pitch() as usize*v;
         return if ind < buf.len()-2{Color::from((buf[ind], buf[ind+1], buf[ind+2]))} else {Color::BLACK};
     }
+    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color){
+        let w = self.width();
+        let h = self.height();
+        let p = self.pitch();
+        let colb = self.without_lock_mut().unwrap();
+        for x in 0..w{
+            for y in 0..h{
+                let i = (x*3 + y*p) as usize;
+                let color = f(x, y, w, h, p, Color::from((colb[i], colb[i+1], colb[i+2])));
+                colb[i] = color.r;
+                colb[i+1] = color.g;
+                colb[i+2] = color.b;
+            }
+        }
+    }
+
 }
 trait ColFuncs{
     fn blend(&self, c:Self)->Self;
+    fn avg(&self, c:Self)->Self;
 }
 impl ColFuncs for Color{
     fn blend(&self, c:Self)->Self{
         return Color::from(((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8));
+    }
+    
+    fn avg(&self, c:Self)->Self{
+        return Color::from((
+            ((self.r as u16 + c.r as u16)/2) as u8, 
+            ((self.g as u16 + c.g as u16)/2) as u8, 
+            ((self.b as u16 + c.b as u16)/2) as u8,
+        ));
     }
 
 }
@@ -145,13 +170,13 @@ impl Tri3d for ([[f32;4];3], [[f32;3];3]){
         return t;
     }
 }
-fn gen_terrain(start : [f32;4], end : [f32;4], increment : f32, func : &dyn Fn(f32, f32)->f32)->Vec<[f32;4]>{
+fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn(f32, f32)->f32)->Vec<[f32;4]>{
     let mut r : Vec<[f32;4]> = Vec::new();
     for i in start[0] as i32..end[0] as i32{
         for j in start[2] as i32..end[2] as i32{
-            if i%increment as i32 == 0 && j%increment as i32 == 0{
-                let x = increment*i as f32;
-                let z = increment*j as f32;
+            if i%spacing[0] as i32 == 0 && j%spacing[1] as i32 == 0{
+                let x = i as f32;
+                let z = j as f32;
                 let y = func(x, z) + start[1];
                 r.push([x, y, z, 1.0]);
             }
@@ -273,7 +298,7 @@ fn min(n1:f32, n2:f32)->f32{
 trait draw_tri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, texture : &Surface);
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32);
 }
 impl draw_tri for WindowCanvas{
     #[inline]
@@ -294,17 +319,15 @@ impl draw_tri for WindowCanvas{
         
     }
     #[inline]
-    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, texture : &Surface){
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32){
         let s = self.output_size().unwrap();
-        let mut c1 = p1;
-        let mut c2 = p2;
-        let mut c3 = p3;
-        let mut i1 = t1;
-        let mut i2 = t2;
-        let mut i3 = t3;
-        let w = texture.width() as f32;
-        let h = texture.height() as f32;
-        
+        let mut c1 = p1; //screen space
+        let mut c2 = p2; //screen space
+        let mut c3 = p3; //screen space
+        let mut i1 = t1; //texel space
+        let mut i2 = t2; //texel space
+        let mut i3 = t3; //texel space
+
         if c1[1] > c2[1]{
             std::mem::swap(&mut c1, &mut c2);
             std::mem::swap(&mut i1, &mut i2);
@@ -320,156 +343,114 @@ impl draw_tri for WindowCanvas{
             std::mem::swap(&mut i2, &mut i3);
         }
         
-        i1[0] *= w;
-        i2[0] *= w;
-        i3[0] *= w;
-        
-        i1[1] *= h;
-        i2[1] *= h;
-        i3[1] *= h;
 
         let mut dax_step = 0.0; let mut dbx_step = 0.0; let mut dcx_step = 0.0;
-        let mut daz_step = 0.0; let mut dbz_step = 0.0; let mut dcz_step = 0.0;
         let mut du1_step = 0.0; let mut dv1_step = 0.0; let mut dw1_step = 0.0;
         let mut du2_step = 0.0; let mut dv2_step = 0.0; let mut dw2_step = 0.0;
         let mut du3_step = 0.0; let mut dv3_step = 0.0; let mut dw3_step = 0.0;
         
         
+        
+        
         let dya = (c2[1] - c1[1]).abs() as f32;
+        let dyb = (c3[1] - c1[1]).abs() as f32;
+        let dyc = (c3[1] - c2[1]).abs() as f32;
         
         if dya != 0.0{
             dax_step = (c2[0] - c1[0])/dya;
-            daz_step = (c2[2] - c1[2])/dya;
             du1_step = (i2[0] - i1[0])/dya;
             dv1_step = (i2[1] - i1[1])/dya;
             dw1_step = (i2[2] - i1[2])/dya;
         }
         
-        let dyb = (c3[1] - c1[1]).abs() as f32;
-        
         if dyb != 0.0{
             dbx_step = (c3[0] - c1[0])/dyb;
-            dbz_step = (c3[2] - c1[2])/dyb;
             du2_step = (i3[0] - i1[0])/dyb;
             dv2_step = (i3[1] - i1[1])/dyb;
             dw2_step = (i3[2] - i1[2])/dyb;
         };
         
-        let dyc = (c3[1] - c2[1]).abs() as f32;
         
         if dyc != 0.0{
             dcx_step = (c3[0] - c2[0])/dyc;
-            dcz_step = (c3[2] - c2[2])/dyc;
             du3_step = (i3[0] - i2[0])/dyc;
             dv3_step = (i3[1] - i2[1])/dyc;
             dw3_step = (i3[2] - i2[2])/dyc;
         }
-
-        if dya != 0.0 || dyc != 0.0{            
+        let mut tex_su : f32;
+        let mut tex_sv : f32;
+        let mut tex_sw : f32;
+        
+        let mut tex_eu : f32;
+        let mut tex_ev : f32;
+        let mut tex_ew : f32;
+        
+        let mut ax : i16;
+        let mut bx : i16;
+        if dya != 0.0 || dyc != 0.0{           
             for y in c1[1] as i16..c3[1] as i16{
                 if y > 0 && y < s.1 as i16{
-                    let mut tex_su : f32;
-                    let mut tex_sv : f32;
-                    let mut tex_sw : f32;
-    
-                    let mut tex_eu : f32;
-                    let mut tex_ev : f32;
-                    let mut tex_ew : f32;
-                    
-                    let mut ax : f32;
-                    let mut bx : f32;
                     if (y as f32) < c2[1] {
-                        tex_su = i1[0] + (y as f32 - c1[1]) * du1_step;
-                        tex_sv = i1[1] + (y as f32 - c1[1]) * dv1_step;
-                        tex_sw = i1[2] + (y as f32 - c1[1]) * dw1_step;
-        
-                        tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
-                        tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
-                        tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
+                        let ys = y as f32-c1[1];
+                        tex_su = i1[0] + (ys) * du1_step;
+                        tex_sv = i1[1] + (ys) * dv1_step;
+                        tex_sw = i1[2] + (ys) * dw1_step;
                         
-                        ax = c1[0] + (y as f32 - c1[1]) * dax_step;
-                        bx = c1[0] + (y as f32 - c1[1]) * dbx_step;
-
+                        tex_eu = i1[0] + (ys) * du2_step;
+                        tex_ev = i1[1] + (ys) * dv2_step;
+                        tex_ew = i1[2] + (ys) * dw2_step;
+                        
+                        ax = (c1[0] + (ys) * dax_step) as i16;
+                        bx = (c1[0] + (ys) * dbx_step) as i16;
+                        
                     } else {
-
-                        tex_su = i2[0] + (y as f32 - c2[1]) * du3_step;
-                        tex_sv = i2[1] + (y as f32 - c2[1]) * dv3_step;
-                        tex_sw = i2[2] + (y as f32 - c2[1]) * dw3_step;
-        
-                        tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
-                        tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
-                        tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
-    
-                        ax = c2[0] + (y as f32 - c2[1]) * dcx_step;
-                        bx = c1[0] + (y as f32 - c1[1]) * dbx_step;
-
-
+                        let ys1 = y as f32-c1[1];
+                        let ys2 = y as f32-c2[1];
+                        tex_su = i2[0] + (ys2) * du3_step;
+                        tex_sv = i2[1] + (ys2) * dv3_step;
+                        tex_sw = i2[2] + (ys2) * dw3_step;
+                        
+                        tex_eu = i1[0] + (ys1) * du2_step;
+                        tex_ev = i1[1] + (ys1) * dv2_step;
+                        tex_ew = i1[2] + (ys1) * dw2_step;
+                        
+                        ax = (c2[0] + (ys2) * dcx_step) as i16;
+                        bx = (c1[0] + (ys1) * dbx_step) as i16;
+                        
                     }
-
                     if ax > bx{
                         std::mem::swap(&mut ax, &mut bx);
                         std::mem::swap(&mut tex_su, &mut tex_eu);
                         std::mem::swap(&mut tex_sv, &mut tex_ev);
                         std::mem::swap(&mut tex_sw, &mut tex_ew);
                     }
-                    
-                    let tstep = 1.0/(bx - ax);
-                    for x in ax as i16..bx as i16{
+                    let tstep = 1.0/(bx as i32 - ax as i32) as f32;
+                    let mut t = 0.0;
+                    for x in ax..bx{
                         if x > 0 && x < s.0 as i16{
-                            let t = (x as f32-ax)*tstep;
+                            
                             let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
-                            let tex_u = (1.0 - t) * tex_su + t * tex_eu;
                             let tex_v = (1.0 - t) * tex_sv + t * tex_ev;
+                            let ind = 3*(width*
+                                    ((1.0 - t) * tex_su + t * tex_eu)/tex_w
+                                ) as usize
+                                +
+                                pitch*(height*
+                                    ((1.0 - t) * tex_sv + t * tex_ev)/tex_w
+                                ) as usize;
+                            let col = if ind < buffer.len()-2{Color::from((buffer[ind], buffer[ind+1], buffer[ind+2]))} else {Color::BLACK};
                             self.pixel(
                                 x,
                                 y, 
-                                texture.color_at(tex_u/tex_w, tex_v/tex_w).blend(c)
+                                col.blend(c)
                             );
                         }
-                        
+                        t += tstep;
                     }
                 }
             }
         }
-
-
-        //if dyc != 0.0{
-        //    for y in c2[1] as i16..c3[1] as i16{
-        //        if y > 0 && y < s.1 as i16{
-        //            let mut tex_su = i2[0] + (y as f32 - c2[1]) * du3_step;
-        //            let mut tex_sv = i2[1] + (y as f32 - c2[1]) * dv3_step;
-        //            let mut tex_sw = i2[2] + (y as f32 - c2[1]) * dw3_step;
-    //
-        //            let mut tex_eu = i1[0] + (y as f32 - c1[1]) * du2_step;
-        //            let mut tex_ev = i1[1] + (y as f32 - c1[1]) * dv2_step;
-        //            let mut tex_ew = i1[2] + (y as f32 - c1[1]) * dw2_step;
-//
-        //            let mut ax = c2[0] + (y as f32 - c2[1])*dcx_step;
-        //            let mut bx = c1[0] + (y as f32 - c1[1])*dbx_step;
-        //            if ax > bx{
-        //                std::mem::swap(&mut ax, &mut bx);
-        //                std::mem::swap(&mut tex_su, &mut tex_eu);
-        //                std::mem::swap(&mut tex_sv, &mut tex_ev);
-        //                std::mem::swap(&mut tex_sw, &mut tex_ew);
-        //            }
-//
-        //            for x in ax as i16..bx as i16{
-        //                if x > 0 && x < s.0 as i16{
-        //                    let t = (x as f32-ax)/(bx - ax);
-        //                    let tex_u = (1.0 - t) * tex_su + t * tex_eu;
-        //                    let tex_v = (1.0 - t) * tex_sv + t * tex_ev;
-        //                    let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
-        //                    self.pixel(
-        //                        x,
-        //                        y, 
-        //                        texture.color_at(tex_u/tex_w, tex_v/tex_w).blend(c)
-        //                    );
-        //                }
-        //                
-        //            }
-        //        }
-        //    }
-        //}
+        
     }
 }
 #[derive(Clone)]
@@ -554,11 +535,13 @@ impl Object{
                 } else if vals[0].to_string() == "vt".to_string(){
                     t_c.push(
                         [
-                            vals[1].parse::<f32>().unwrap(), 
+                            vals[2].parse::<f32>().unwrap(), 
                             vals[1].parse::<f32>().unwrap(), 
                             1.0
                         ]
                     );
+                } else if vals[0].to_string() == "vn".to_string(){
+
                 }
             }
         }
@@ -638,7 +621,7 @@ fn main() {
 
     let mut window = video_subsystem.window("game", 500, 500)
         .opengl()
-        //.fullscreen_desktop()
+        .fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -653,7 +636,7 @@ fn main() {
         .map_err(|e| e.to_string())
         .unwrap();
     
-    canvas.set_scale(1.0001, 1.0001);
+    canvas.set_scale(0.999, 0.999);
     canvas.window().gl_set_context_to_current();
     
     let screen_width = canvas.output_size().unwrap().0 as i32;
@@ -669,6 +652,16 @@ fn main() {
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         vll: 90_f32.to_radians()
     };
+    let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
+    
+    texture_draw.apply_fn(&|x, y, w, h, p, c|->Color{
+        return Color::from((
+            ((x as f32/p as f32).cos()*255.0) as u8, 
+            ((y as f32/h as f32).sin()*255.0) as u8, 
+            (x) as u8,
+        ))
+    });
+    
     let mut engine = Engine{
         camera : player_cam,
         clip_distance : 1.0,
@@ -678,8 +671,8 @@ fn main() {
         objects : Vec::new()
     };
     for i in 0..1{
-        engine.objects.push(Object::load_obj_file("assets/textured_cube.obj".to_string(), true).translate([i as f32*5.0, 0.0, 5.0, 0.0]));
-        engine.objects[i].rot_vel = [0.0, 0_f32.to_radians(), 0.0, 1.0];
+        engine.objects.push(Object::load_obj_file("assets/textured_teapot.obj".to_string(), true).translate([i as f32*5.0, 0.0, 5.0, 0.0]));
+        engine.objects[i].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     }
     
     let dababy_texture : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
@@ -798,7 +791,6 @@ fn main() {
 
         let cam = engine.camera;
         engine.camera.rot = cam.rot.add(cam.rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
-        let travis : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
         engine.camera.pos = cam.pos.add(
             cam.vel.multiply_mat([
                 [engine.camera.rot[1].cos(), engine.camera.rot[2].sin(), -engine.camera.rot[1].sin(), 0.0],
@@ -816,7 +808,7 @@ fn main() {
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center);
             let obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
 
-            for mut tri in obj.tris{
+            for mut tri in sort_tris(obj.tris){
                 //engine.objects[i].tris[n] = engine.objects[i].tris[n].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center, center);
                 //obj.tris[n].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos, cam.pos);
                 let normal = tri.normal();
@@ -857,14 +849,17 @@ fn main() {
                             tri.1[1],
                             tri.1[2],
                             Color::from((c, c, c)),
-                            &travis
+                            texture_draw.without_lock().unwrap(),
+                            texture_draw.pitch() as usize,
+                            texture_draw.width() as f32,
+                            texture_draw.height() as f32
                         );
-                        canvas.draw_triangle(
-                            o,     
-                            g,
-                            h,
-                            Color::WHITE
-                        );
+                        //canvas.draw_triangle(
+                        //    o,     
+                        //    g,
+                        //    h,
+                        //    Color::WHITE
+                        //);
                                 
                     }
                 }
