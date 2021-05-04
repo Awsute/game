@@ -305,7 +305,7 @@ fn min(n1:f32, n2:f32)->f32{
 trait DrawTri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, depth_buffer : &mut Vec<f32>, light_info:[f32;3]);
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, depth_buffer : &mut Vec<f32>, light_info : [f32;3], light_color : Color);
 }
 impl DrawTri for WindowCanvas{
     #[inline]
@@ -326,7 +326,7 @@ impl DrawTri for WindowCanvas{
         
     }
     #[inline]
-    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, depth_buffer : &mut Vec<f32>, light_info : [f32;3]){
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, depth_buffer : &mut Vec<f32>, light_info : [f32;3], light_color : Color){
         let s = self.output_size().unwrap();
         let mut c1 = p1; //screen space
         let mut c2 = p2; //screen space
@@ -337,7 +337,6 @@ impl DrawTri for WindowCanvas{
         let mut l1 = light_info[0];
         let mut l2 = light_info[1];
         let mut l3 = light_info[2];
-
         if c1[1] > c2[1]{
             std::mem::swap(&mut c1, &mut c2);
             std::mem::swap(&mut i1, &mut i2);
@@ -362,6 +361,9 @@ impl DrawTri for WindowCanvas{
         let mut du2_step = 0.0; let mut dv2_step = 0.0; let mut dw2_step = 0.0;
         let mut du3_step = 0.0; let mut dv3_step = 0.0; let mut dw3_step = 0.0;
         
+        let mut la_step = 0.0;
+        let mut lb_step = 0.0;
+        let mut lc_step = 0.0;
         
         
         
@@ -369,27 +371,42 @@ impl DrawTri for WindowCanvas{
         let dyb = (c3[1] - c1[1]).abs() as f32;
         let dyc = (c3[1] - c2[1]).abs() as f32;
         
-        if dya != 0.0{
+        if dya != 0.0{ //point a to point b
             dax_step = (c2[0] - c1[0])/dya;
             du1_step = (i2[0] - i1[0])/dya;
             dv1_step = (i2[1] - i1[1])/dya;
             dw1_step = (i2[2] - i1[2])/dya;
+
+            la_step = (l2-l1)/dya;
         }
         
-        if dyb != 0.0{
+        if dyb != 0.0{ //point a to point c
             dbx_step = (c3[0] - c1[0])/dyb;
-            du2_step = (i3[0] - i1[0])/dyb;
+            du2_step = (i3[0] - i1[0])/dyb; 
             dv2_step = (i3[1] - i1[1])/dyb;
             dw2_step = (i3[2] - i1[2])/dyb;
+
+            lb_step = (l3-l1)/dyb;
+
         };
         
         
-        if dyc != 0.0{
+        if dyc != 0.0{ //point b to point c
             dcx_step = (c3[0] - c2[0])/dyc;
             du3_step = (i3[0] - i2[0])/dyc;
             dv3_step = (i3[1] - i2[1])/dyc;
             dw3_step = (i3[2] - i2[2])/dyc;
+
+            lc_step = (l3-l2)/dyc;
+
         }
+
+
+        /*
+        Linearly interpolate between vectors??
+        Interpolate each value
+        Yes ok
+        */
 
         if dya != 0.0 || dyc != 0.0{           
             for y in c1[1] as i32+1..c3[1] as i32+1{
@@ -404,6 +421,9 @@ impl DrawTri for WindowCanvas{
                     
                     let mut ax : i32;
                     let mut bx : i32;
+
+                    let mut ls : f32;
+                    let mut le : f32;
                     if y < c2[1] as i32+1 {
                         let ys = y as f32-c1[1];
                         tex_su = i1[0] + (ys) * du1_step;
@@ -416,7 +436,11 @@ impl DrawTri for WindowCanvas{
                         
                         ax = (c1[0] + (ys) * dax_step + 0.5) as i32;
                         bx = (c1[0] + (ys) * dbx_step + 0.5) as i32;
-                        
+
+                        ls = l1 + (ys)*la_step;
+                        le = l1 + (ys)*lb_step;
+
+
                     } else {
                         let ys1 = y as f32-c1[1];
                         let ys2 = y as f32-c2[1];
@@ -431,31 +455,48 @@ impl DrawTri for WindowCanvas{
                         ax = (c2[0] + (ys2) * dcx_step + 0.5) as i32;
                         bx = (c1[0] + (ys1) * dbx_step + 0.5) as i32;
                         
+                        ls = l2 + (ys2)*lc_step;
+                        le = l1 + (ys1)*lb_step;
                     }
                     if ax > bx{
                         std::mem::swap(&mut ax, &mut bx);
                         std::mem::swap(&mut tex_su, &mut tex_eu);
                         std::mem::swap(&mut tex_sv, &mut tex_ev);
                         std::mem::swap(&mut tex_sw, &mut tex_ew);
+                        std::mem::swap(&mut ls, &mut le);
                     }
                     let tstep = 1.0/(bx - ax) as f32;
-                    
                     for x in ax..bx{
                         if x > 0 && x < s.0 as i32{
+
+                            
+                            
                             let t = (x as f32-ax as f32)*tstep;
                             let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
                             let dbi = (x+s.0 as i32*y) as usize;
-                            if tex_w>depth_buffer[dbi]{
+
+                            if tex_w > depth_buffer[dbi]{
                                 depth_buffer[dbi] = tex_w;
+                                
+                                let dp = (1.0-t)*ls+t*le;
+                                    
                                 let ind = 
                                     (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize +
                                     pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
-                                let col = if ind < buffer.len()-2{Color::from((buffer[ind], buffer[ind+1], buffer[ind+2]))} else {Color::BLACK};
+                                let col = if ind < buffer.len()-2{
+                                    Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
+                                        Color::from(((dp*255.0) as u8, (dp*255.0) as u8, (dp*255.0) as u8)).blend(light_color)
+                                    )
+                                } else {
+                                    Color::WHITE
+                                };
+
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
-                                    col.blend(c)
+                                    col
                                 );
+                                
                             }
                         }
                     }
@@ -530,8 +571,8 @@ impl Object{
                                 ],
                                 [
                                     [0.0, 0.0, 0.0, 1.0],
-                                    [1.0, 0.0, 0.0, 1.0],
-                                    [1.0, 1.0, 0.0, 1.0]
+                                    [0.0, 0.0, 0.0, 1.0],
+                                    [0.0, 0.0, 0.0, 1.0]
                                 ],
                             )
                         );
@@ -551,8 +592,8 @@ impl Object{
                                 ],
                                 [
                                     [0.0, 0.0, 0.0, 1.0],
-                                    [1.0, 0.0, 0.0, 1.0],
-                                    [1.0, 1.0, 0.0, 1.0]
+                                    [0.0, 0.0, 0.0, 1.0],
+                                    [0.0, 0.0, 0.0, 1.0]
                                 ],
                             )
                         );
@@ -570,9 +611,9 @@ impl Object{
                                     t_c[p3[1].parse::<usize>().unwrap()-1]
                                 ],
                                 [
-                                    t_n[p1[1].parse::<usize>().unwrap()-1],
-                                    t_n[p2[1].parse::<usize>().unwrap()-1],
-                                    t_n[p3[1].parse::<usize>().unwrap()-1]
+                                    t_n[p1[2].parse::<usize>().unwrap()-1],
+                                    t_n[p2[2].parse::<usize>().unwrap()-1],
+                                    t_n[p3[2].parse::<usize>().unwrap()-1]
                                 ]
                             )
                         );
@@ -592,7 +633,7 @@ impl Object{
                             vals[2].parse::<f32>().unwrap(), 
                             vals[3].parse::<f32>().unwrap(), 
                             1.0
-                        ]
+                        ].normalize()
                     )
                 }
             }
@@ -703,14 +744,10 @@ fn main() {
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         vll: 90_f32.to_radians()
     };
-    let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/ajay.png")).unwrap();
+    let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
 
     texture_draw.apply_fn(&|x, y, w, h, p, c|->Color{
-        return Color::from((
-            (y) as u8,
-            (y) as u8,
-            (y) as u8,
-        ));
+        return Color::WHITE;
     });
 
 
@@ -724,8 +761,8 @@ fn main() {
         objects : Vec::new()
     };
     
-    engine.objects.push(Object::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
-    
+    engine.objects.push(Object::load_obj_file("assets/normalized_character.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
+    //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     
 
     let cspeed = 10.0;
@@ -736,11 +773,13 @@ fn main() {
         depth_buf.push(0.0);
     }
     let mut frames = 0_f32;
+    let mut seconds_passed = 0_f32;
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
         frames += 1.0;
         let FPS = fps_manager.get_framerate() as f32;
+        seconds_passed += 1.0/FPS;
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
@@ -843,7 +882,7 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let light = [0.0, 0.0, -1.0, 1.0].normalize();
+        let light = [seconds_passed.sin(), 0.0, -1.0*seconds_passed.cos(), 1.0].normalize();
         let light_color = Color::WHITE;
         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
         for i in 0..engine.objects.len(){
@@ -853,65 +892,65 @@ fn main() {
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center);
             let obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
 
-            for mut tri in obj.tris{
+            for j  in 0..obj.tris.len(){
+                let mut tri = obj.tris[j];
                 //engine.objects[i].tris[n] = engine.objects[i].tris[n].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center, center);
-                //obj.tris[n].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos, cam.pos);
+                //let mut tri = triangle.upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos, cam.pos);
                 let normal = tri.normal();
                 let c = tri.center();
                 if normal.dot_product(tri.0[0]) <= 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
-                    let dp = normal.dot_product(light);
-                    let dps = [1.0-light.dot_product(tri.2[0].normalize()), 1.0-light.dot_product(tri.2[1].normalize()), 1.0-light.dot_product(tri.2[2].normalize())];
-                    if dp != 0.0{
-                        let t = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0, 1.0]).multiply_mat(mat3d);
-                        
-                        let t03 = t.0[0][3]; let t13 = t.0[1][3]; let t23 = t.0[2][3]; let c = (255.0*dp) as u8;
-                        let o = [(t.0[0][0]/t03+ew), (t.0[0][1]/t03+eh), t.0[0][2]];    
-                        let g = [(t.0[1][0]/t13+ew), (t.0[1][1]/t13+eh), t.0[1][2]];
-                        let h = [(t.0[2][0]/t23+ew), (t.0[2][1]/t23+eh), t.0[2][2]];
-                        //canvas.fill_triangle(
-                        //    o,     
-                        //    g,
-                        //    h,
-                        //    Color::from((c, c, c))
-                        //);
+                    let t = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0, 1.0]).multiply_mat(mat3d);
+                    let dp  = normal.dot_product(light);
+                    let t03 = t.0[0][3]; let t13 = t.0[1][3]; let t23 = t.0[2][3]; let darkness = (255.0*dp) as u8;
+                    let o = [(t.0[0][0]/t03+ew), (t.0[0][1]/t03+eh), t.0[0][2]];    
+                    let g = [(t.0[1][0]/t13+ew), (t.0[1][1]/t13+eh), t.0[1][2]];
+                    let h = [(t.0[2][0]/t23+ew), (t.0[2][1]/t23+eh), t.0[2][2]];
+                    //canvas.fill_triangle(
+                    //    o,     
+                    //    g,
+                    //    h,
+                    //    Color::from((c, c, c))
+                    //);
 
-                        
-                        tri.1[0][1] /= t03;
-                        tri.1[1][1] /= t13;
-                        tri.1[2][1] /= t23;
-                        
-                        tri.1[0][0] /= t03;
-                        tri.1[1][0] /= t13;
-                        tri.1[2][0] /= t23;
+                    
+                    tri.1[0][1] /= t03;
+                    tri.1[1][1] /= t13;
+                    tri.1[2][1] /= t23;
+                    
+                    tri.1[0][0] /= t03;
+                    tri.1[1][0] /= t13;
+                    tri.1[2][0] /= t23;
 
-                        tri.1[0][2] = 1.0/t03;
-                        tri.1[1][2] = 1.0/t13;
-                        tri.1[2][2] = 1.0/t23;
-                        canvas.textured_triangle(
-                            o,
-                            g,
-                            h,
-                            tri.1[0],
-                            tri.1[1],
-                            tri.1[2],
-                            Color::from((c, c, c)).avg(Color::from((216, 216, 216))),
-                            texture_draw.without_lock().unwrap(),
-                            texture_draw.pitch() as usize,
-                            texture_draw.width() as f32,
-                            texture_draw.height() as f32,
-                            &mut depth_buf,
-                            dps
-                        );
+                    tri.1[0][2] = 1.0/t03;
+                    tri.1[1][2] = 1.0/t13;
+                    tri.1[2][2] = 1.0/t23;
+                    let etri = engine.objects[i].tris[j];
+                    canvas.textured_triangle(
+                        o,
+                        g,
+                        h,
+                        tri.1[0],
+                        tri.1[1],
+                        tri.1[2],
+                        Color::from((darkness, darkness, darkness)).avg(Color::from((216, 216, 216))),
+                        texture_draw.without_lock().unwrap(),
+                        texture_draw.pitch() as usize,
+                        texture_draw.width() as f32,
+                        texture_draw.height() as f32,
+                        &mut depth_buf,
+                        [etri.2[0].dot_product(light), etri.2[1].dot_product(light), etri.2[2].dot_product(light)],
+                        light_color
+                    );
 
-                        //canvas.draw_triangle(
-                        //    o,     
-                        //    g,
-                        //    h,
-                        //    Color::GREY
-                        //);
-                                
-                    }
+                    //canvas.draw_triangle(
+                    //    o,     
+                    //    g,
+                    //    h,
+                    //    Color::GREY
+                    //);
+                            
                 }
+                
             }
         }
 
