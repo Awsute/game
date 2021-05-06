@@ -23,55 +23,10 @@ use std::borrow::Borrow;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::gfx::framerate::FPSManager;
 
-trait Surf{
-    fn color_at(&self, x:f32, y:f32)->Color;
-    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color);
-}
-impl Surf for Surface<'_>{
-    fn color_at(&self, x: f32, y: f32)->Color{
-        let buf = self.without_lock().unwrap();
-        let u = (x+0.5) as usize;
-        let v = (y+0.5) as usize;
-        let ind = 3*u+self.pitch() as usize*v;
-        return if ind < buf.len()-2{Color::from((buf[ind], buf[ind+1], buf[ind+2]))} else {Color::BLACK};
-    }
-    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color){
-        let w = self.width();
-        let h = self.height();
-        let p = self.pitch();
-        let colb = self.without_lock_mut().unwrap();
-        for x in 0..w{
-            for y in 0..h{
-                let i = (x*(p/w) + y*p) as usize;
-                let color = f(x, y, w, h, p, Color::from((colb[i], colb[i+1], colb[i+2])));
-                colb[i] = color.r;
-                colb[i+1] = color.g;
-                colb[i+2] = color.b;
-            }
-        }
-    }
+mod world;
+use world::{Engine, Mesh, Camera};
 
-}
-trait ColFuncs{
-    fn blend(&self, c:Self)->Self;
-    fn avg(&self, c:Self)->Self;
-}
-impl ColFuncs for Color{
-    #[inline]
-    fn blend(&self, c:Self)->Self{
-        return Color::from(((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8));
-    }  
-    #[inline]
-    fn avg(&self, c:Self)->Self{
-        return Color::from((
-            ((self.r as u16 + c.r as u16)/2) as u8, 
-            ((self.g as u16 + c.g as u16)/2) as u8, 
-            ((self.b as u16 + c.b as u16)/2) as u8,
-        ));
-    }
-
-}
-trait Vec3{
+pub trait Vec3{
     fn scale(&self, scalar : [f32;4])->Self;
     fn add(&self, a : [f32;4])->Self;
     fn subtract(&self, a : [f32;4])->Self;
@@ -119,7 +74,7 @@ impl Vec3 for [f32;4]{
 
 }
 
-trait Tri3d{
+pub trait Tri3d{
     fn normal(&self)->[f32;4];
     fn translate(&self, t:[f32;4])->Self;
     fn scale(&self, t:[f32;4])->Self;
@@ -177,6 +132,56 @@ impl Tri3d for ([[f32;4];3], [[f32;3];3], [[f32;4];3]){
         return t;
     }
 }
+
+trait Surf{
+    fn color_at(&self, x:f32, y:f32)->Color;
+    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color);
+}
+impl Surf for Surface<'_>{
+    fn color_at(&self, x: f32, y: f32)->Color{
+        let buf = self.without_lock().unwrap();
+        let u = (x+0.5) as usize;
+        let v = (y+0.5) as usize;
+        let ind = 3*u+self.pitch() as usize*v;
+        return if ind < buf.len()-2{Color::from((buf[ind], buf[ind+1], buf[ind+2]))} else {Color::BLACK};
+    }
+    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color){
+        let w = self.width();
+        let h = self.height();
+        let p = self.pitch();
+        let colb = self.without_lock_mut().unwrap();
+        for x in 0..w{
+            for y in 0..h{
+                let i = (x*(p/w) + y*p) as usize;
+                let color = f(x, y, w, h, p, Color::from((colb[i], colb[i+1], colb[i+2])));
+                colb[i] = color.r;
+                colb[i+1] = color.g;
+                colb[i+2] = color.b;
+            }
+        }
+    }
+
+}
+trait ColFuncs{
+    fn blend(&self, c:Self)->Self;
+    fn avg(&self, c:Self)->Self;
+}
+impl ColFuncs for Color{
+    #[inline]
+    fn blend(&self, c:Self)->Self{
+        return Color::from(((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8));
+    }  
+    #[inline]
+    fn avg(&self, c:Self)->Self{
+        return Color::from((
+            ((self.r as u16 + c.r as u16)/2) as u8, 
+            ((self.g as u16 + c.g as u16)/2) as u8, 
+            ((self.b as u16 + c.b as u16)/2) as u8,
+        ));
+    }
+
+}
+
 fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn(f32, f32)->f32)->Vec<[f32;4]>{
     let mut r : Vec<[f32;4]> = Vec::new();
     for i in start[0] as i32..end[0] as i32{
@@ -231,69 +236,7 @@ impl operations4x4 for [[f32;4];4]{
     }
 }
 //hi
-#[derive(Copy, Clone)]
-struct Camera{
-    fov : f32,
-    pos : [f32;4],
-    rot : [f32;4],
-    vel : [f32;4],
-    rot_vel : [f32;4],
-    vll : f32
-}
-pub struct Engine{
-    camera : Camera,
-    clip_distance : f32,
-    render_distance : f32,
-    window_height : f32,
-    window_width : f32,
-    objects : Vec<Object>
-}
 
-impl Engine{
-    fn matrix3d(&self)->[[f32;4];4]{
-        let t = ((self.camera.fov/2.0)*(std::f32::consts::PI/180.0)).tan();
-        let zratio = self.render_distance/(self.render_distance-self.clip_distance);
-        return [
-            [-1.0/(t*self.window_width/self.window_height), 0.0, 0.0, 0.0],
-            [0.0, -1.0/t, 0.0, 0.0],
-            [0.0, 0.0, zratio, 1.0],
-            [0.0, 0.0, -self.clip_distance*zratio, 0.0]
-        ];
-    }
-    fn x_rot(angle : f32)->[[f32;4];4]{
-        return [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, angle.cos(), angle.sin(), 0.0],
-            [0.0, -angle.sin(), angle.cos(), 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        ];
-    }
-    fn y_rot(angle : f32)->[[f32;4];4]{
-        return [
-            [angle.cos(), 0.0, -angle.sin(), 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [angle.sin(), 0.0, angle.cos(), 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        ];
-    }
-    fn z_rot(angle : f32)->[[f32;4];4]{
-        return [
-            [angle.cos(), -angle.sin(), 0.0, 0.0],
-            [angle.sin(), angle.cos(), 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        ];
-    }
-    /*[
-        [z.cos()*y.cos(), -z.sin(), z.cos()*-y.sin()],
-        [z.sin()*y.cos(), z.cos(), z.sin()*-y.sin()],
-        [0.0, 0.0, y.cos()]
-    ]*/
-    fn rot_zyx(x : f32, y : f32, z : f32)->[[f32;4];4]{
-        return Engine::z_rot(z).multiply(Engine::y_rot(y)).multiply(Engine::x_rot(x));
-    }
-
-}
 fn max(n1:f32, n2:f32)->f32{
     return if n1 > n2{n1} else{n2};
 }
@@ -305,7 +248,7 @@ fn min(n1:f32, n2:f32)->f32{
 trait DrawTri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, depth_buffer : &mut Vec<f32>, light_info : [f32;3], light_color : Color);
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, light_info : [f32;3], light_color : Color);
 }
 impl DrawTri for WindowCanvas{
     #[inline]
@@ -326,8 +269,8 @@ impl DrawTri for WindowCanvas{
         
     }
     #[inline]
-    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, depth_buffer : &mut Vec<f32>, light_info : [f32;3], light_color : Color){
-        let s = self.output_size().unwrap();
+    fn textured_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], t1 : [f32;3], t2 : [f32;3], t3 : [f32;3], c: Color, buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, light_info : [f32;3], light_color : Color){
+        let s = (engine.window_width, engine.window_height);
         let mut c1 = p1; //screen space
         let mut c2 = p2; //screen space
         let mut c3 = p3; //screen space
@@ -475,11 +418,10 @@ impl DrawTri for WindowCanvas{
                             let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
                             let dbi = (x+s.0 as i32*y) as usize;
 
-                            if tex_w > depth_buffer[dbi]{
-                                depth_buffer[dbi] = tex_w;
+                            if tex_w > engine.depth_buffer[dbi]{
+                                engine.depth_buffer[dbi] = tex_w;
                                 
                                 let dp = (1.0-t)*ls+t*le;
-                                    
                                 let ind = 
                                     (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize +
                                     pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
@@ -508,179 +450,7 @@ impl DrawTri for WindowCanvas{
     }
 }
 
-struct Object{
-    tris : Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>,
-    rot : [f32;4],
-    vel : [f32;4],
-    rot_vel : [f32;4],
-}
 
-impl Object{
-    fn new(tris:Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, texture : Surface)->Self{
-        return Object{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0]};
-    }
-    #[inline]
-    fn center(&self)->[f32;4]{
-        let mut c = [0.0, 0.0, 0.0, 1.0];
-        let n = self.tris.len() as f32;
-        for tri in &self.tris{
-            c = c.add(tri.center());
-        }
-        return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
-    }
-
-    fn load_obj_file(file_path:String)->Self{
-        let file = File::open(file_path).unwrap();
-        let reader = BufReader::new(file);
-        let mut ts : Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])> = Vec::new();
-        let mut t_n : Vec<[f32;4]> = Vec::new();
-        let mut points : Vec<[f32;4]> = Vec::new();
-        let mut t_c : Vec<[f32;3]> = Vec::new();
-        for line in reader.lines() {
-            
-            let ln = Box::leak(line.unwrap().into_boxed_str());
-            let mut vals : Vec<&str> = ln.split_whitespace().collect();
-            if vals.len() > 0{
-                if vals[0].to_string() == "v".to_string() {
-                    points.push(
-                        [
-                            vals[1].parse::<f32>().unwrap(),
-                            vals[2].parse::<f32>().unwrap(),
-                            vals[3].parse::<f32>().unwrap(),
-                            1.0
-                        ]
-                    );
-                } else if vals[0].to_string() == "f".to_string() {
-                    let p1 : Vec<&str> = vals[1].split("/").collect();
-                    let p2 : Vec<&str> = vals[2].split("/").collect();
-                    let p3 : Vec<&str> = vals[3].split("/").collect();
-                    if p1.len() == 2{
-
-                        
-                        ts.push(
-                            (
-                                [
-                                    points[p1[0].parse::<usize>().unwrap()-1],
-                                    points[p2[0].parse::<usize>().unwrap()-1],
-                                    points[p3[0].parse::<usize>().unwrap()-1]
-                                ],
-                                [
-                                    t_c[p1[1].parse::<usize>().unwrap()-1],
-                                    t_c[p2[1].parse::<usize>().unwrap()-1],
-                                    t_c[p3[1].parse::<usize>().unwrap()-1]
-                                ],
-                                [
-                                    [0.0, 0.0, 0.0, 1.0],
-                                    [0.0, 0.0, 0.0, 1.0],
-                                    [0.0, 0.0, 0.0, 1.0]
-                                ],
-                            )
-                        );
-
-                    } else if p1.len() == 1 {
-                        ts.push(
-                            (
-                                [
-                                    points[vals[1].parse::<usize>().unwrap()-1],
-                                    points[vals[2].parse::<usize>().unwrap()-1],
-                                    points[vals[3].parse::<usize>().unwrap()-1]
-                                ],
-                                [
-                                    [0.0, 0.0, 0.0],
-                                    [1.0, 0.0, 0.0],
-                                    [1.0, 1.0, 0.0]
-                                ],
-                                [
-                                    [0.0, 0.0, 0.0, 1.0],
-                                    [0.0, 0.0, 0.0, 1.0],
-                                    [0.0, 0.0, 0.0, 1.0]
-                                ],
-                            )
-                        );
-                    } else if p1.len() == 3{
-                        ts.push(
-                            (
-                                [
-                                    points[p1[0].parse::<usize>().unwrap()-1],
-                                    points[p2[0].parse::<usize>().unwrap()-1],
-                                    points[p3[0].parse::<usize>().unwrap()-1]
-                                ],
-                                [
-                                    t_c[p1[1].parse::<usize>().unwrap()-1],
-                                    t_c[p2[1].parse::<usize>().unwrap()-1],
-                                    t_c[p3[1].parse::<usize>().unwrap()-1]
-                                ],
-                                [
-                                    t_n[p1[2].parse::<usize>().unwrap()-1],
-                                    t_n[p2[2].parse::<usize>().unwrap()-1],
-                                    t_n[p3[2].parse::<usize>().unwrap()-1]
-                                ]
-                            )
-                        );
-                    }
-                } else if vals[0].to_string() == "vt".to_string(){
-                    t_c.push(
-                        [
-                            1.0-vals[1].parse::<f32>().unwrap(), 
-                            1.0-vals[2].parse::<f32>().unwrap(), 
-                            1.0
-                        ]
-                    );
-                } else if vals[0].to_string() == "vn".to_string(){
-                    t_n.push(
-                        [
-                            vals[1].parse::<f32>().unwrap(), 
-                            vals[2].parse::<f32>().unwrap(), 
-                            vals[3].parse::<f32>().unwrap(), 
-                            1.0
-                        ].normalize()
-                    )
-                }
-            }
-        }
-        return Object{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0]};
-    }
-    fn translate(&self, t : [f32;4])->Self{
-        let mut s = Vec::new();
-        for i in &self.tris{
-            s.push(i.translate(t));
-        }
-        return Object{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel};
-    }
-    fn scale(&self, t : [f32;4])->Self{
-        let mut s = Vec::new();
-        for i in &self.tris{
-            s.push(i.scale(t));
-        }
-        return Object{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel};
-    }
-    fn rotate_point(&self, deg : [f32;4], point : [f32;4])->Self{
-        let mut ts = Vec::new();
-        for i in 0..ts.len(){
-            ts.push(self.tris[i].translate(point.negative()));
-            if deg[2] != 0.0{
-                ts[i] = ts[i].multiply_mat(Engine::z_rot(deg[2]));
-            }
-            if deg[1] != 0.0{
-                ts[i] = ts[i].multiply_mat(Engine::y_rot(deg[1]));
-            }
-            if deg[0] != 0.0{
-                ts[i] = ts[i].multiply_mat(Engine::x_rot(deg[0]));
-            }
-            ts[i] = ts[i].translate(point);
-        }
-        return Object{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel};
-    }
-    #[inline]
-    fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4])->Self{
-        let center = self.center();
-        
-        let ts = self.tris.iter().map(|&i|{
-            return i.upd(scalar, trans, rot, rot_point, center);
-        }).collect::<Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>>();
-        return Object{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel};
-    }
-}
 #[inline]
 fn sort_objs(engine : &mut Engine){
     let r = engine.camera.rot.negative();
@@ -758,19 +528,19 @@ fn main() {
         render_distance : 1000.0,
         window_height : screen_height as f32,
         window_width : screen_width as f32,
-        objects : Vec::new()
+        objects : Vec::new(),
+        depth_buffer : Vec::new()
     };
     
-    engine.objects.push(Object::load_obj_file("assets/normalized_character.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
     //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     
 
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = engine.matrix3d();
-    let mut depth_buf : Vec<f32> = Vec::new();
     for i in 0..screen_width*screen_height{
-        depth_buf.push(0.0);
+        engine.depth_buffer.push(0.0);
     }
     let mut frames = 0_f32;
     let mut seconds_passed = 0_f32;
@@ -882,7 +652,7 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let light = [seconds_passed.sin(), 0.0, -1.0*seconds_passed.cos(), 1.0].normalize();
+        let light = [0.0, 0.0, -1.0, 1.0].normalize();
         let light_color = Color::WHITE;
         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
         for i in 0..engine.objects.len(){
@@ -937,7 +707,7 @@ fn main() {
                         texture_draw.pitch() as usize,
                         texture_draw.width() as f32,
                         texture_draw.height() as f32,
-                        &mut depth_buf,
+                        &mut engine,
                         [etri.2[0].dot_product(light), etri.2[1].dot_product(light), etri.2[2].dot_product(light)],
                         light_color
                     );
@@ -967,7 +737,7 @@ fn main() {
         );
         canvas.present();
         for i in 0..screen_width*screen_height{
-            depth_buf[i as usize] = 0.0;
+            engine.depth_buffer[i as usize] = 0.0;
         }
     }
 }
