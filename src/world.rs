@@ -28,7 +28,7 @@ pub struct Engine{
 }
 
 impl Engine{
-    pub fn matrix3d(&self)->[[f32;4];4]{
+    pub fn matrix3d_perspective(&self)->[[f32;4];4]{
         let t = ((self.camera.fov/2.0)*(std::f32::consts::PI/180.0)).tan();
         let zratio = self.render_distance/(self.render_distance-self.clip_distance);
         return [
