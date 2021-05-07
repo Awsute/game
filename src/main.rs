@@ -92,44 +92,6 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     }
     return r;
 }
-
-
-trait operations4x4{
-    fn multiply(self, mat : Self)->Self;
-}
-impl operations4x4 for [[f32;4];4]{
-    fn multiply(self, mat : Self)->Self{
-        return [
-            [
-                self[0][0]*mat[0][0] + self[0][1]*mat[1][0] + self[0][2]*mat[2][0] + self[0][3]*mat[3][0], 
-                self[0][0]*mat[0][1] + self[0][1]*mat[1][1] + self[0][2]*mat[2][1] + self[0][3]*mat[3][1], 
-                self[0][0]*mat[0][2] + self[0][1]*mat[1][2] + self[0][2]*mat[2][2] + self[0][3]*mat[3][2],
-                self[0][0]*mat[0][3] + self[0][1]*mat[1][3] + self[0][2]*mat[2][3] + self[0][3]*mat[3][3],
-            ],
-
-            [
-                self[1][0]*mat[0][0] + self[1][1]*mat[1][0] + self[1][2]*mat[2][0] + self[1][3]*mat[3][0], 
-                self[1][0]*mat[0][1] + self[1][1]*mat[1][1] + self[1][2]*mat[2][1] + self[1][3]*mat[3][1], 
-                self[1][0]*mat[0][2] + self[1][1]*mat[1][2] + self[1][2]*mat[2][2] + self[1][3]*mat[3][2],
-                self[1][0]*mat[0][3] + self[1][1]*mat[1][3] + self[1][2]*mat[2][3] + self[1][3]*mat[3][3],
-            ],
-
-            [
-                self[2][0]*mat[0][0] + self[2][1]*mat[1][0] + self[2][2]*mat[2][0] + self[2][3]*mat[3][0], 
-                self[2][0]*mat[0][1] + self[2][1]*mat[1][1] + self[2][2]*mat[2][1] + self[2][3]*mat[3][1], 
-                self[2][0]*mat[0][2] + self[2][1]*mat[1][2] + self[2][2]*mat[2][2] + self[2][3]*mat[3][2],
-                self[2][0]*mat[0][3] + self[2][1]*mat[1][3] + self[2][2]*mat[2][3] + self[2][3]*mat[3][3],
-            ],
-
-            [
-                self[3][0]*mat[0][0] + self[3][1]*mat[1][0] + self[3][2]*mat[2][0] + self[3][3]*mat[3][0], 
-                self[3][0]*mat[0][1] + self[3][1]*mat[1][1] + self[3][2]*mat[2][1] + self[3][3]*mat[3][1], 
-                self[3][0]*mat[0][2] + self[3][1]*mat[1][2] + self[3][2]*mat[2][2] + self[3][3]*mat[3][2],
-                self[3][0]*mat[0][3] + self[3][1]*mat[1][3] + self[3][2]*mat[2][3] + self[3][3]*mat[3][3],
-            ],
-        ]
-    }
-}
 //hi
 
 fn max(n1:f32, n2:f32)->f32{
@@ -353,10 +315,12 @@ fn sort_objs(engine : &mut Engine){
     &engine.objects.sort_by(|a, b| b.upd([1.0, 1.0, 1.0, 1.0], p.negative(), r, p).center().magnitude().partial_cmp(&a.upd([1.0, 1.0, 1.0, 1.0], p.negative(), r, p).center().magnitude()).unwrap());
 }
 #[inline]
-fn sort_tris(mut tris : Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>)->Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>{
+fn sort_tris(mut tris : Vec<Tri3d>)->Vec<Tri3d>{
     &tris.sort_by(|a,b| b.center()[2].partial_cmp(&a.center()[2]).unwrap());
     return tris;
 }
+
+fn clip_tris(tris : &mut Vec<Tri3d>){}
 
 fn find_sdl_gl_driver() -> Option<u32> {
     for (index, item) in sdl2::render::drivers().enumerate() {
@@ -427,6 +391,7 @@ fn main() {
         depth_buffer : Vec::new()
     };
     
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([100.0, 0.0, 100.0, 1.0]).translate([0.0, -5.0, 0.0, 0.0]));    
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
     //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     
@@ -547,7 +512,7 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let light = [0.0, 0.0, -1.0, 1.0].normalize();
+        let light = [0.0, 1.0, -2.0, 1.0].normalize();
         let light_color = Color::WHITE;
         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
         for i in 0..engine.objects.len(){
@@ -563,13 +528,13 @@ fn main() {
                 //let mut tri = triangle.upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos, cam.pos);
                 let normal = tri.normal();
                 let c = tri.center();
-                if normal.dot_product(tri.0[0]) <= 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
+                if normal.dot_product(tri.ps[0]) <= 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
                     let t = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0, 1.0]).multiply_mat(mat3d);
                     let dp  = normal.dot_product(light);
-                    let t03 = t.0[0][3]; let t13 = t.0[1][3]; let t23 = t.0[2][3]; let darkness = (255.0*dp) as u8;
-                    let o = [(t.0[0][0]/t03+ew), (t.0[0][1]/t03+eh), t.0[0][2]];    
-                    let g = [(t.0[1][0]/t13+ew), (t.0[1][1]/t13+eh), t.0[1][2]];
-                    let h = [(t.0[2][0]/t23+ew), (t.0[2][1]/t23+eh), t.0[2][2]];
+                    let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3]; let darkness = (255.0*dp) as u8;
+                    let o = [(t.ps[0][0]/t03+ew), (t.ps[0][1]/t03+eh), t.ps[0][2]];    
+                    let g = [(t.ps[1][0]/t13+ew), (t.ps[1][1]/t13+eh), t.ps[1][2]];
+                    let h = [(t.ps[2][0]/t23+ew), (t.ps[2][1]/t23+eh), t.ps[2][2]];
                     //canvas.fill_triangle(
                     //    o,     
                     //    g,
@@ -578,32 +543,32 @@ fn main() {
                     //);
 
                     
-                    tri.1[0][1] /= t03;
-                    tri.1[1][1] /= t13;
-                    tri.1[2][1] /= t23;
+                    tri.uvs[0][1] /= t03;
+                    tri.uvs[1][1] /= t13;
+                    tri.uvs[2][1] /= t23;
                     
-                    tri.1[0][0] /= t03;
-                    tri.1[1][0] /= t13;
-                    tri.1[2][0] /= t23;
+                    tri.uvs[0][0] /= t03;
+                    tri.uvs[1][0] /= t13;
+                    tri.uvs[2][0] /= t23;
 
-                    tri.1[0][2] = 1.0/t03;
-                    tri.1[1][2] = 1.0/t13;
-                    tri.1[2][2] = 1.0/t23;
+                    tri.uvs[0][2] = 1.0/t03;
+                    tri.uvs[1][2] = 1.0/t13;
+                    tri.uvs[2][2] = 1.0/t23;
                     let etri = engine.objects[i].tris[j];
                     canvas.textured_triangle(
                         o,
                         g,
                         h,
-                        tri.1[0],
-                        tri.1[1],
-                        tri.1[2],
+                        tri.uvs[0],
+                        tri.uvs[1],
+                        tri.uvs[2],
                         Color::from((darkness, darkness, darkness)).avg(Color::from((216, 216, 216))),
                         texture_draw.without_lock().unwrap(),
                         texture_draw.pitch() as usize,
                         texture_draw.width() as f32,
                         texture_draw.height() as f32,
                         &mut engine,
-                        [etri.2[0].dot_product(light), etri.2[1].dot_product(light), etri.2[2].dot_product(light)],
+                        [tri.ns[0].dot_product(light), tri.ns[1].dot_product(light), tri.ns[2].dot_product(light)],
                         light_color
                     );
 

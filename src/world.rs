@@ -65,14 +65,14 @@ impl Engine{
 
 }
 pub struct Mesh{
-    pub tris : Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>,
+    pub tris : Vec<Tri3d>,
     pub rot : [f32;4],
     pub vel : [f32;4],
     pub rot_vel : [f32;4],
 }
 
 impl Mesh{
-    pub fn new(tris:Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, texture : Surface)->Self{
+    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, texture : Surface)->Self{
         return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0]};
     }
     #[inline]
@@ -88,7 +88,7 @@ impl Mesh{
     pub fn load_obj_file(file_path:String)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
-        let mut ts : Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])> = Vec::new();
+        let mut ts : Vec<Tri3d> = Vec::new();
         let mut t_n : Vec<[f32;4]> = Vec::new();
         let mut points : Vec<[f32;4]> = Vec::new();
         let mut t_c : Vec<[f32;3]> = Vec::new();
@@ -114,7 +114,7 @@ impl Mesh{
 
                         
                         ts.push(
-                            (
+                            Tri3d::new(
                                 [
                                     points[p1[0].parse::<usize>().unwrap()-1],
                                     points[p2[0].parse::<usize>().unwrap()-1],
@@ -135,7 +135,7 @@ impl Mesh{
 
                     } else if p1.len() == 1 {
                         ts.push(
-                            (
+                            Tri3d::new(
                                 [
                                     points[vals[1].parse::<usize>().unwrap()-1],
                                     points[vals[2].parse::<usize>().unwrap()-1],
@@ -155,7 +155,7 @@ impl Mesh{
                         );
                     } else if p1.len() == 3{
                         ts.push(
-                            (
+                            Tri3d::new(
                                 [
                                     points[p1[0].parse::<usize>().unwrap()-1],
                                     points[p2[0].parse::<usize>().unwrap()-1],
@@ -233,7 +233,8 @@ impl Mesh{
         
         let ts = self.tris.iter().map(|&i|{
             return i.upd(scalar, trans, rot, rot_point, center);
-        }).collect::<Vec<([[f32;4];3], [[f32;3];3], [[f32;4];3])>>();
+        }).collect::<Vec<Tri3d>>();
         return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel};
     }
+
 }
