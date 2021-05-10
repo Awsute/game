@@ -326,7 +326,7 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let light = [-1.0, 0.0, 0.0, 1.0].normalize();
+        let light = [0.0, 0.0, -1.0, 1.0].normalize();
         let light_color = Color::WHITE;
         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
         for i in 0..engine.objects.len(){
