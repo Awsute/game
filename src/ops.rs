@@ -45,8 +45,8 @@ impl Vec3 for [f32;4]{
             self[0] * m[0][3] + self[1] * m[1][3] + self[2] * m[2][3] + self[3] * m[3][3]
         ];
     }
-
 }
+
 
 #[derive(Copy, Clone)]
 pub struct Tri3d{
