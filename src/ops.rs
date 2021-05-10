@@ -2,6 +2,7 @@ use crate::{Engine};
 
 pub trait Vec3{
     fn scale(&self, scalar : [f32;4])->Self;
+    fn scale_c(&self, scalar : f32)->Self;
     fn add(&self, a : [f32;4])->Self;
     fn subtract(&self, a : [f32;4])->Self;
     fn magnitude(&self)->f32;
@@ -14,6 +15,9 @@ pub trait Vec3{
 impl Vec3 for [f32;4]{
     fn scale(&self, scalar : [f32;4])->[f32;4]{
         return [self[0]*scalar[0], self[1]*scalar[1], self[2]*scalar[2], self[3]];
+    }
+    fn scale_c(&self, scalar : f32)->Self{
+        return [self[0]*scalar, self[1]*scalar, self[2]*scalar, 1.0];
     }
     fn add(&self, a : [f32;4])->[f32;4]{
         return [self[0]+a[0], self[1]+a[1], self[2]+a[2], self[3]];

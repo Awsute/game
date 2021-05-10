@@ -82,7 +82,7 @@ impl DrawTri for WindowCanvas{
             dv1_step = (i2[1] - i1[1])*da;
             dw1_step = (i2[2] - i1[2])*da;
 
-            la_step = l2.subtract(l1).scale([da, da, da, 1.0]);
+            la_step = l2.subtract(l1).scale_c(da);
         }
         
         if dyb != 0.0{ //point a to point c
@@ -92,7 +92,7 @@ impl DrawTri for WindowCanvas{
             dv2_step = (i3[1] - i1[1])*db;
             dw2_step = (i3[2] - i1[2])*db;
 
-            lb_step = l3.subtract(l1).scale([db, db, db, 1.0]);
+            lb_step = l3.subtract(l1).scale_c(db);
 
         };
         
@@ -104,7 +104,7 @@ impl DrawTri for WindowCanvas{
             dv3_step = (i3[1] - i2[1])*dc;
             dw3_step = (i3[2] - i2[2])*dc;
 
-            lc_step = l3.subtract(l2).scale([dc, dc, dc, 1.0]);
+            lc_step = l3.subtract(l2).scale_c(dc);
 
         }
 
@@ -133,7 +133,6 @@ impl DrawTri for WindowCanvas{
                     let mut le : [f32;4];
                     let ys1 = y as f32-c1[1];
                     let ys2 = y as f32-c2[1];
-                    let ysl1 = [ys1, ys1, ys1, 1.0];
                     if y < c2[1] as i32+1 {
                         ax = (c1[0] + (ys1) * dax_step) as i32;
                         bx = (c1[0] + (ys1) * dbx_step) as i32;
@@ -147,8 +146,8 @@ impl DrawTri for WindowCanvas{
                         tex_ew = i1[2] + (ys1) * dw2_step;
                         
 
-                        ls = l1.add(la_step.scale(ysl1));
-                        le = l1.add(lb_step.scale(ysl1));
+                        ls = l1.add(la_step.scale_c(ys1));
+                        le = l1.add(lb_step.scale_c(ys1));
 
 
                     } else {
@@ -164,8 +163,8 @@ impl DrawTri for WindowCanvas{
                         tex_ew = i1[2] + (ys1) * dw2_step;
                         
 
-                        ls = l2.add(lc_step.scale([ys2, ys2, ys2, 1.0]));
-                        le = l1.add(lb_step.scale(ysl1));
+                        ls = l2.add(lc_step.scale_c(ys2));
+                        le = l1.add(lb_step.scale_c(ys1));
 
                     }
                     if ax > bx{
@@ -185,8 +184,7 @@ impl DrawTri for WindowCanvas{
 
                             if tex_w > engine.depth_buffer[dbi]{
                                 engine.depth_buffer[dbi] = tex_w;
-                                let t1 = 1.0-t;
-                                let dp = ls.scale([t1, t1, t1, 1.0]).add(le.scale([t, t, t, 1.0])).normalize().dot_product(light_dir.normalize());
+                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light_dir);
                                 let ind = (
                                     (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize +
                                     pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize

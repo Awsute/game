@@ -160,7 +160,7 @@ fn main() {
 
     let mut window = video_subsystem.window("game", 750, 750)
         .opengl()
-        .fullscreen_desktop()
+        //.fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -208,7 +208,7 @@ fn main() {
         depth_buffer : Vec::new()
     };
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_character.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
     //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     
 
@@ -326,7 +326,7 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let light = [0.0, 0.0, -1.0, 1.0].normalize();
+        let light = [-1.0, 0.0, 0.0, 1.0].normalize();
         let light_color = Color::WHITE;
         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
         for i in 0..engine.objects.len(){
@@ -352,7 +352,7 @@ fn main() {
                     //    o,     
                     //    g,
                     //    h,
-                    //    Color::from((c, c, c))
+                    //    Color::from((darkness, darkness, darkness))
                     //);
 
                     
@@ -375,7 +375,7 @@ fn main() {
                         tri.uvs[0],
                         tri.uvs[1],
                         tri.uvs[2],
-                        Color::from((darkness, darkness, darkness)).avg(Color::from((216, 216, 216))),
+                        Color::from((darkness, darkness, darkness)),
                         texture_draw.without_lock().unwrap(),
                         texture_draw.pitch() as usize,
                         texture_draw.width() as f32,
