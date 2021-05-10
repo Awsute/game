@@ -193,7 +193,7 @@ fn main() {
     let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
 
     texture_draw.apply_fn(&|x, y, w, h, p, c|->Color{
-        return Color::WHITE;
+        return c;
     });
 
 
@@ -208,7 +208,7 @@ fn main() {
         depth_buffer : Vec::new()
     };
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_character.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
     //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
     
 
