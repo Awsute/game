@@ -218,7 +218,7 @@ fn main() {
     for i in 0..screen_width*screen_height{
         engine.depth_buffer.push(0.0);
     }
-    let mut seconds_passed = 0_f32;
+    let mut seconds_passed = 0.0;
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
