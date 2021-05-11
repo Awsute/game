@@ -149,3 +149,23 @@ impl operations4x4 for [[f32;4];4]{
         ]
     }
 }
+
+pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
+    let zaxis = pos.subtract(target).normalize();
+    let xaxis = up.normalize().cross_product(zaxis).normalize();
+    let yaxis = zaxis.cross_product(xaxis);
+    
+    return [
+        [xaxis[0], xaxis[1], xaxis[2], 0.0],
+        [yaxis[0], yaxis[1], yaxis[2], 0.0],
+        [zaxis[0], zaxis[1], zaxis[2], 0.0],
+        [0.0, 0.0, 0.0, 1.0]
+    ].multiply(
+        [
+            [1.0, 0.0, 0.0, -pos[0]],
+            [0.0, 1.0, 0.0, -pos[1]],
+            [0.0, 0.0, 1.0, -pos[2]],
+            [0.0, 0.0, 0.0, 1.0]
+        ]
+    );
+}

@@ -32,6 +32,9 @@ use drawing::DrawTri;
 mod color;
 use color::ColFuncs;
 
+mod light;
+use light::Light;
+
 trait Surf{
     fn color_at(&self, x:f32, y:f32)->Color;
     fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color);
@@ -112,7 +115,7 @@ fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], l
 }
 
 fn clip_tri(tri : Tri3d, plane_p : [f32;4], plane_n : [f32;4]) -> Vec<Tri3d>{
-    let new = Vec::new();
+    let mut new = Vec::new();
     let plane_n = plane_n.normalize();
 
     let dist = |p : [f32;4]|->f32{
@@ -135,7 +138,9 @@ fn clip_tri(tri : Tri3d, plane_p : [f32;4], plane_n : [f32;4]) -> Vec<Tri3d>{
     if d2 >= 0.0{in_points.push(tri.ps[2])}
     else {out_points.push(tri.ps[2])}
 
-    
+    if in_points.len() == 3{
+        new.push(tri);
+    }
     return new;
 }
 
@@ -193,7 +198,7 @@ fn main() {
     let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
 
     texture_draw.apply_fn(&|x, y, w, h, p, c|->Color{
-        return c;
+        return Color::WHITE;
     });
 
 
@@ -207,14 +212,18 @@ fn main() {
         objects : Vec::new(),
         depth_buffer : Vec::new()
     };
-    
+
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([1.0, 10.0, 10.0, 1.0]).translate([-10.0, 0.0, 5.0, 0.0]));    
     //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
+    
+    let mut l_src = Light::new([10.0, 2.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(90_f32.to_radians(), 100.0, 0.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
+    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
     
 
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
-    let mat3d = engine.matrix3d_perspective();
+    let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.render_distance, engine.clip_distance, engine.window_width, engine.window_height);
     for i in 0..screen_width*screen_height{
         engine.depth_buffer.push(0.0);
     }
@@ -326,13 +335,16 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let light = [0.0, 0.0, -1.0, 1.0].normalize();
-        let light_color = Color::WHITE;
         let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
+        for i in 0..engine.objects.len(){
+            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].center());
+            for j in 0..engine.objects[i].tris.len(){
+                l_src.edit_shadow_buffer(engine.objects[i].tris[j]);
+            }
+        }       
         for i in 0..engine.objects.len(){
 
             
-            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].center());
             let obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
 
             for j  in 0..obj.tris.len(){
@@ -342,19 +354,20 @@ fn main() {
                 let normal = tri.normal();
                 let c = tri.center();
                 if normal.dot_product(tri.ps[0]) <= 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
-                    let t = tri.scale([engine.window_width/2.0, engine.window_height/2.0, 1.0, 1.0]).multiply_mat(mat3d);
-                    let dp  = normal.dot_product(light);
-                    let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3]; let darkness = (255.0*dp) as u8;
+                    
+                    let t = tri.scale([ew, eh, 1.0, 1.0]).multiply_mat(mat3d);
+                    //let dp  = normal.dot_product(light);
+                    let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3]; //let darkness = (255.0*dp) as u8;
                     let o = [(t.ps[0][0]/t03+ew), (t.ps[0][1]/t03+eh), t.ps[0][2]];    
                     let g = [(t.ps[1][0]/t13+ew), (t.ps[1][1]/t13+eh), t.ps[1][2]];
                     let h = [(t.ps[2][0]/t23+ew), (t.ps[2][1]/t23+eh), t.ps[2][2]];
                     //canvas.fill_triangle(
-                    //    o,     
-                    //    g,
-                    //    h,
-                    //    Color::from((darkness, darkness, darkness))
+                        //    o,     
+                        //    g,
+                        //    h,
+                        //    Color::from((darkness, darkness, darkness))
                     //);
-
+                    
                     
                     tri.uvs[0][1] /= t03;
                     tri.uvs[1][1] /= t13;
@@ -363,35 +376,30 @@ fn main() {
                     tri.uvs[0][0] /= t03;
                     tri.uvs[1][0] /= t13;
                     tri.uvs[2][0] /= t23;
-
+                    
                     tri.uvs[0][2] = 1.0/t03;
                     tri.uvs[1][2] = 1.0/t13;
                     tri.uvs[2][2] = 1.0/t23;
                     let etri = engine.objects[i].tris[j];
+                    
                     canvas.textured_triangle(
-                        o,
-                        g,
-                        h,
-                        tri.uvs[0],
-                        tri.uvs[1],
-                        tri.uvs[2],
-                        Color::from((darkness, darkness, darkness)),
+                        [o, g, h],
+                        [tri.uvs[0], tri.uvs[1], tri.uvs[2]],
                         texture_draw.without_lock().unwrap(),
                         texture_draw.pitch() as usize,
                         texture_draw.width() as f32,
                         texture_draw.height() as f32,
                         &mut engine,
-                        [etri.ns[0], etri.ns[1], etri.ns[2]],
-                        light,
-                        light_color
+                        etri,
+                        &mut l_src
                     );
 
-                    //canvas.draw_triangle(
-                    //    o,     
-                    //    g,
-                    //    h,
-                    //    Color::GREY
-                    //);
+                    canvas.draw_triangle(
+                        o,     
+                        g,
+                        h,
+                        Color::WHITE
+                    );
                             
                 }
                 
