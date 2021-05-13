@@ -32,7 +32,7 @@ impl DrawTri for WindowCanvas{
     }
     #[inline]
     fn textured_triangle(&mut self, p : [[f32;3];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light){
-        let s = (engine.window_width, engine.window_height);
+        let s = (engine.camera.window_width, engine.camera.window_height);
         let mut c1 = p[0];
         let mut c2 = p[1];
         let mut c3 = p[2];
@@ -204,31 +204,30 @@ impl DrawTri for WindowCanvas{
 
                             if tex_w > engine.depth_buffer[dbi]{
                                 engine.depth_buffer[dbi] = tex_w;
-                                let ind = (
-                                    (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize +
-                                    pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize
-                                );
+                                let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
                                 
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t));
                                 
-                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.negative());
-                                let c = (dp*255.0) as u8;
+                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize().negative());
+                                let g = (dp*255.0) as u8;
+                                let c = (light.is_lit(point)*255.0) as u8;
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
-                                    if ind < buffer.len()-2&&light.is_lit(point){
+                                    if ind < buffer.len()-2{
                                         Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
                                             Color::from((c, c, c)).blend(light.col)
                                         )
+                                        //.blend(
+                                        //    Color::from((g, g, g))
+                                        //)
                                     } else {
                                         Color::BLACK
                                     }
-                                );
-                                
+                                ); 
                             }
                         }
                     }
-                    
                 }
             }
         }

@@ -14,15 +14,14 @@ pub struct Camera{
     pub rot : [f32;4],
     pub vel : [f32;4],
     pub rot_vel : [f32;4],
-    pub vll : f32
-}
-
-pub struct Engine{
-    pub camera : Camera,
     pub clip_distance : f32,
     pub render_distance : f32,
     pub window_height : f32,
     pub window_width : f32,
+}
+
+pub struct Engine{
+    pub camera : Camera,
     pub objects : Vec<Mesh>,
     pub depth_buffer : Vec<f32>
 }

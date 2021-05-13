@@ -62,6 +62,13 @@ impl Tri3d{
     pub fn new(ps:[[f32;4];3], uvs:[[f32;3];3], ns:[[f32;4];3])->Self{
         return Self{ps, uvs, ns};
     }
+    pub fn empty()->Self{
+        return Tri3d{
+            ps:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]],
+            uvs:[[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]],
+            ns:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]]
+        }
+    }
     pub fn normal(&self)->[f32;4]{
         return self.ps[2].subtract(self.ps[0]).cross_product(self.ps[1].subtract(self.ps[0])).normalize();//sheeeesh
     }
@@ -105,9 +112,10 @@ impl Tri3d{
             if rot[0] != 0.0{
                 t = t.multiply_mat(Engine::x_rot(rot[0]));
             }
-            t = t.translate(rot_point)
+            t = t.translate(rot_point);
         }
         t = t.translate(trans);
+
         return t;
     }
 }
@@ -153,7 +161,7 @@ impl operations4x4 for [[f32;4];4]{
 pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
     let zaxis = pos.subtract(target).normalize();
     let xaxis = up.normalize().cross_product(zaxis).normalize();
-    let yaxis = zaxis.cross_product(xaxis);
+    let yaxis = zaxis.cross_product(xaxis).normalize();
     
     return [
         [xaxis[0], xaxis[1], xaxis[2], 0.0],

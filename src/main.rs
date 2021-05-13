@@ -92,19 +92,6 @@ fn min(n1:f32, n2:f32)->f32{
 
 
 
-
-#[inline]
-fn sort_objs(engine : &mut Engine){
-    let r = engine.camera.rot.negative();
-    let p = engine.camera.pos;
-    &engine.objects.sort_by(|a, b| b.upd([1.0, 1.0, 1.0, 1.0], p.negative(), r, p).center().magnitude().partial_cmp(&a.upd([1.0, 1.0, 1.0, 1.0], p.negative(), r, p).center().magnitude()).unwrap());
-}
-#[inline]
-fn sort_tris(mut tris : Vec<Tri3d>)->Vec<Tri3d>{
-    &tris.sort_by(|a,b| b.center()[2].partial_cmp(&a.center()[2]).unwrap());
-    return tris;
-}
-
 fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], line_e : [f32;4])->[f32;4]{
     let plane_n = plane_n.normalize();
     let plane_d = -plane_p.dot_product(plane_n);
@@ -114,8 +101,7 @@ fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], l
     return line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0]));
 }
 
-fn clip_tri(tri : Tri3d, plane_p : [f32;4], plane_n : [f32;4]) -> Vec<Tri3d>{
-    let mut new = Vec::new();
+fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mut [Tri3d;2]) -> usize{
     let plane_n = plane_n.normalize();
 
     let dist = |p : [f32;4]|->f32{
@@ -125,23 +111,45 @@ fn clip_tri(tri : Tri3d, plane_p : [f32;4], plane_n : [f32;4]) -> Vec<Tri3d>{
     let mut in_points = Vec::new();
     let mut out_points = Vec::new();
 
-    let d0 = dist(tri.ps[0]);
-    let d1 = dist(tri.ps[1]);
-    let d2 = dist(tri.ps[2]);
+    let d0 = dist(in_tri.ps[0]);
+    let d1 = dist(in_tri.ps[1]);
+    let d2 = dist(in_tri.ps[2]);
 
-    if d0 >= 0.0{in_points.push(tri.ps[0])}
-    else {out_points.push(tri.ps[0])}
+    if d0 >= 0.0{in_points.push(in_tri.ps[0])}
+    else {out_points.push(in_tri.ps[0])}
     
-    if d1 >= 0.0{in_points.push(tri.ps[1])}
-    else {out_points.push(tri.ps[1])}
+    if d1 >= 0.0{in_points.push(in_tri.ps[1])}
+    else {out_points.push(in_tri.ps[1])}
     
-    if d2 >= 0.0{in_points.push(tri.ps[2])}
-    else {out_points.push(tri.ps[2])}
+    if d2 >= 0.0{in_points.push(in_tri.ps[2])}
+    else {out_points.push(in_tri.ps[2])}
 
     if in_points.len() == 3{
-        new.push(tri);
+        out_tris[0].ps = in_tri.ps;
+        out_tris[0].uvs = in_tri.uvs;
+        out_tris[0].ns = in_tri.ns;
+
+        return 1;
+    } else if in_points.len() == 0 {
+        return 0;
+    } else if in_points.len() == 1{
+        out_tris[0].ps[0] = in_points[0];
+        out_tris[0].ps[1] = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+        out_tris[0].ps[2] = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
+        return 1;
+    } else if in_points.len() == 2{
+
+        out_tris[0].ps[0] = in_points[0];
+        out_tris[0].ps[1] = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
+        out_tris[0].ps[2] = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+
+        out_tris[1].ps[0] = in_points[0];
+        out_tris[1].ps[1] = in_points[1];
+        out_tris[1].ps[2] = out_tris[0].ps[1];
+
+        return 2;
     }
-    return new;
+    return 0;
 }
 
 fn find_sdl_gl_driver() -> Option<u32> {
@@ -193,7 +201,11 @@ fn main() {
         rot : [0.0, 0.0, 0.0, 0.0],
         vel : [0.0, 0.0, 0.0, 0.0],
         rot_vel : [0.0, 0.0, 0.0, 0.0],
-        vll: 90_f32.to_radians()
+        clip_distance : 0.5,
+        render_distance : 500.0,
+        window_height : screen_height as f32,
+        window_width : screen_width as f32,
+        
     };
     let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
 
@@ -205,25 +217,22 @@ fn main() {
     
     let mut engine = Engine{
         camera : player_cam,
-        clip_distance : 1.0,
-        render_distance : 500.0,
-        window_height : screen_height as f32,
-        window_width : screen_width as f32,
         objects : Vec::new(),
         depth_buffer : Vec::new()
     };
 
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([1.0, 10.0, 10.0, 1.0]).translate([-10.0, 0.0, 5.0, 0.0]));    
-    //engine.objects[0].rot_vel = [0.0, 90_f32.to_radians(), 0.0, 1.0];
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([20.0, 1.0, 20.0, 1.0]).translate([0.0, -2.0, 0.0, 0.0]));    
+    //engine.objects[1].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([10.0, 2.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(90_f32.to_radians(), 100.0, 0.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
+    let mut l_src = Light::new([10.0, 1.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(75_f32.to_radians(), 50.0, 0.1, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
-    
+    engine.camera.pos = l_src.pos;
+    engine.camera.rot = [0.0, -90_f32.to_radians(), 0.0, 1.0];
 
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
-    let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.render_distance, engine.clip_distance, engine.window_width, engine.window_height);
+    let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
     for i in 0..screen_width*screen_height{
         engine.depth_buffer.push(0.0);
     }
@@ -279,21 +288,13 @@ fn main() {
                 
                 //--------------ROTATE--------------
                 Event::KeyDown {keycode: Some(Keycode::Up), .. } => {
-                    if engine.camera.rot[0] > (-engine.camera.vll)%360_f32.to_radians(){
-                        engine.camera.rot_vel[0] = -rspeed;
-                    } else {
-                        engine.camera.rot_vel[0] = 0.0;
-                    }
+                    engine.camera.rot_vel[0] = -rspeed;
                 }, Event::KeyUp {keycode: Some(Keycode::Up), .. } => {
                     engine.camera.rot_vel[0] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Down), .. } => {
-                    if engine.camera.rot[0] < (engine.camera.vll)%360_f32.to_radians(){
-                        engine.camera.rot_vel[0] = rspeed;
-                    } else {
-                        engine.camera.rot_vel[0] = 0.0;
-                    }
+                    engine.camera.rot_vel[0] = rspeed;
                 }, Event::KeyUp {keycode: Some(Keycode::Down), .. } => {
                     engine.camera.rot_vel[0] = 0.0;
                 },
@@ -335,82 +336,94 @@ fn main() {
                 [0.0, 0.0, 0.0, 1.0]
             ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
         );
-        let ew = engine.window_width/2.0; let eh = engine.window_height/2.0;
+        let ew = engine.camera.window_width/2.0; let eh = engine.camera.window_height/2.0;
+        
+        //view space
+        let z_clip = [0.0, 0.0, engine.camera.clip_distance, 1.0];
+        let z_clip_n = [0.0, 0.0, 1.0, 1.0];
+
+
         for i in 0..engine.objects.len(){
-            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].center());
+            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
                 l_src.edit_shadow_buffer(engine.objects[i].tris[j]);
             }
-        }       
+        }
+             
         for i in 0..engine.objects.len(){
 
+
+            
             
             let obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
-
+            
             for j  in 0..obj.tris.len(){
-                let mut tri = obj.tris[j];
-                //engine.objects[i].tris[n] = engine.objects[i].tris[n].upd(list_id_sc, engine.objects[i].vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), engine.objects[i].rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]), center, center);
-                //let mut tri = triangle.upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos, cam.pos);
-                let normal = tri.normal();
-                let c = tri.center();
-                if normal.dot_product(tri.ps[0]) <= 0.0 && c[2] > engine.clip_distance && c[2] < engine.render_distance{
-                    
-                    let t = tri.scale([ew, eh, 1.0, 1.0]).multiply_mat(mat3d);
-                    //let dp  = normal.dot_product(light);
-                    let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3]; //let darkness = (255.0*dp) as u8;
-                    let o = [(t.ps[0][0]/t03+ew), (t.ps[0][1]/t03+eh), t.ps[0][2]];    
-                    let g = [(t.ps[1][0]/t13+ew), (t.ps[1][1]/t13+eh), t.ps[1][2]];
-                    let h = [(t.ps[2][0]/t23+ew), (t.ps[2][1]/t23+eh), t.ps[2][2]];
-                    //canvas.fill_triangle(
+
+                let normal = obj.tris[j].normal();
+                let c = obj.tris[j].center();
+                if normal.dot_product(c) <= 0.0 {
+                    let mut trs = [Tri3d::empty(), Tri3d::empty()];
+                    let t_clipped = clip_tri(z_clip, z_clip_n, obj.tris[j], &mut trs);
+                    for n in 0..t_clipped{
+                        let mut tri = trs[n];
+                        let t = tri.scale([ew, eh, 1.0, 1.0]).multiply_mat(mat3d);
+                        //let dp  = normal.dot_product([0.0, 0.0, -1.0, 1.0]);
+                        //let darkness = (255.0*dp) as u8;
+                        let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3]; 
+                        let o = [(t.ps[0][0]/t03+ew), (t.ps[0][1]/t03+eh), t.ps[0][2]];    
+                        let g = [(t.ps[1][0]/t13+ew), (t.ps[1][1]/t13+eh), t.ps[1][2]];
+                        let h = [(t.ps[2][0]/t23+ew), (t.ps[2][1]/t23+eh), t.ps[2][2]];
+                        //canvas.fill_triangle(
                         //    o,     
                         //    g,
                         //    h,
                         //    Color::from((darkness, darkness, darkness))
-                    //);
-                    
-                    
-                    tri.uvs[0][1] /= t03;
-                    tri.uvs[1][1] /= t13;
-                    tri.uvs[2][1] /= t23;
-                    
-                    tri.uvs[0][0] /= t03;
-                    tri.uvs[1][0] /= t13;
-                    tri.uvs[2][0] /= t23;
-                    
-                    tri.uvs[0][2] = 1.0/t03;
-                    tri.uvs[1][2] = 1.0/t13;
-                    tri.uvs[2][2] = 1.0/t23;
-                    let etri = engine.objects[i].tris[j];
-                    
-                    canvas.textured_triangle(
-                        [o, g, h],
-                        [tri.uvs[0], tri.uvs[1], tri.uvs[2]],
-                        texture_draw.without_lock().unwrap(),
-                        texture_draw.pitch() as usize,
-                        texture_draw.width() as f32,
-                        texture_draw.height() as f32,
-                        &mut engine,
-                        etri,
-                        &mut l_src
-                    );
+                        //);
+                        
+                        
+                        tri.uvs[0][1] /= t03;
+                        tri.uvs[1][1] /= t13;
+                        tri.uvs[2][1] /= t23;
+                        
+                        tri.uvs[0][0] /= t03;
+                        tri.uvs[1][0] /= t13;
+                        tri.uvs[2][0] /= t23;
+                        
+                        tri.uvs[0][2] = 1.0/t03;
+                        tri.uvs[1][2] = 1.0/t13;
+                        tri.uvs[2][2] = 1.0/t23;
+                        let etri = engine.objects[i].tris[j];
+                        
+                        canvas.textured_triangle(
+                            [o, g, h],
+                            [tri.uvs[0], tri.uvs[1], tri.uvs[2]],
+                            texture_draw.without_lock().unwrap(),
+                            texture_draw.pitch() as usize,
+                            texture_draw.width() as f32,
+                            texture_draw.height() as f32,
+                            &mut engine,
+                            etri,
+                            &mut l_src
+                        );
 
-                    canvas.draw_triangle(
-                        o,     
-                        g,
-                        h,
-                        Color::WHITE
-                    );
-                            
-                }
-                
+                        //canvas.draw_triangle(
+                        //    o,     
+                        //    g,
+                        //    h,
+                        //    Color::WHITE
+                        //);
+                                
+                    }
+                }    
             }
         }
 
 
         fps_manager.set_framerate(max_fps);
         let del = fps_manager.delay();
-        fps_manager.set_framerate(1000/del);
-
+        if del != 0{
+            fps_manager.set_framerate(1000/del);
+        }
         canvas.string(
             5,
             5,
