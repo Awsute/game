@@ -222,10 +222,10 @@ fn main() {
     };
 
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([20.0, 1.0, 20.0, 1.0]).translate([0.0, -2.0, 0.0, 0.0]));    
-    //engine.objects[1].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
+    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([20.0, 1.0, 20.0, 1.0]).translate([0.0, -2.0, 0.0, 0.0]));    
+    //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([10.0, 1.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(75_f32.to_radians(), 50.0, 0.1, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
+    let mut l_src = Light::new([10.0, 1.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(90_f32.to_radians(), 100.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
     engine.camera.pos = l_src.pos;
     engine.camera.rot = [0.0, -90_f32.to_radians(), 0.0, 1.0];
