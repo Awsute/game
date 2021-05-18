@@ -209,7 +209,8 @@ impl DrawTri for WindowCanvas{
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t));
                                 
                                 let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize());
-                                let mut c = (light.is_lit(point)*255.0) as u8;
+                                let mut c = (dp*255.0) as u8;
+                                //light.is_lit(point)
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
