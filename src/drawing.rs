@@ -208,7 +208,7 @@ impl DrawTri for WindowCanvas{
                                 engine.depth_buffer[dbi] = tex_w;
                                 let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
                                 
-                                let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t));
+                                let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
                                 let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize().negative());
                                 let c = (dp*255.0) as u8;
                                 let g = (light.is_lit(point)*255.0) as u8;

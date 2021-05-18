@@ -244,7 +244,7 @@ fn main() {
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize]
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(), "assets/dabebe.png".to_string(), Color::WHITE).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(), "assets/dabebe.png".to_string(), Color::WHITE).translate([0.0, 0.0, 5.0, 0.0]));
     engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/travisScot.png".to_string(), Color::WHITE).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
@@ -380,9 +380,9 @@ fn main() {
         for i in 0..engine.objects.len(){            
             let obj = engine.objects[i].multiply_mat(cam_mat);
             let mut otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
-            otex.apply_fn(&|x, y, w, h, p, c|->Color{
-                return Color::WHITE;
-            });
+            //otex.apply_fn(&|x, y, w, h, p, c|->Color{
+            //    return Color::WHITE;
+            //});
             for j  in 0..obj.tris.len(){
 
                 let normal = obj.tris[j].normal();
@@ -419,8 +419,11 @@ fn main() {
                         tri.uvs[1][2] = 1.0/t13;
                         tri.uvs[2][2] = 1.0/t23;
 
-                        let etri = engine.objects[i].tris[j];
+                        let mut etri = engine.objects[i].tris[j];
                         
+                        etri.ps[0] = etri.ps[0].scale_c(1.0/t03);
+                        etri.ps[1] = etri.ps[1].scale_c(1.0/t13);
+                        etri.ps[2] = etri.ps[2].scale_c(1.0/t23);
                         
                         canvas.textured_triangle(
                             [o, g, h],
