@@ -161,6 +161,7 @@ fn find_sdl_gl_driver() -> Option<u32> {
     None
 }
 fn main() {
+    let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
 
     let list_id = [0.0, 0.0, 0.0, 0.0];
@@ -198,7 +199,7 @@ fn main() {
     let player_cam = Camera{
         fov : 90.0,
         pos : [0.0, 0.0, 0.0, 1.0],
-        rot : [0.0, 0.0, 0.0, 0.0],
+        dir : [0.0, 0.0, 1.0, 1.0],
         vel : [0.0, 0.0, 0.0, 0.0],
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
@@ -218,24 +219,19 @@ fn main() {
     let mut engine = Engine{
         camera : player_cam,
         objects : Vec::new(),
-        depth_buffer : Vec::new()
+        depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize]
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));    
-    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).scale([20.0, 1.0, 20.0, 1.0]).translate([0.0, -2.0, 0.0, 0.0]));    
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([10.0, 1.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(90_f32.to_radians(), 100.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
+    let mut l_src = Light::new([15.0, 2.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(90_f32.to_radians(), 100.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
     engine.camera.pos = l_src.pos;
-    engine.camera.rot = [0.0, -90_f32.to_radians(), 0.0, 1.0];
-
+    engine.camera.dir = l_src.dir;
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
-    for i in 0..screen_width*screen_height{
-        engine.depth_buffer.push(0.0);
-    }
     let mut seconds_passed = 0.0;
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
@@ -249,37 +245,37 @@ fn main() {
                     break 'running
                 },
                 Event::KeyDown {keycode: Some(Keycode::W), .. } => {
-                    engine.camera.vel[2] = cspeed;
+                    engine.camera.vel[2] = 1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::W), .. } => {
                     engine.camera.vel[2] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::A), .. } => {
-                    engine.camera.vel[0] = cspeed;
+                    engine.camera.vel[0] = 1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::A), .. } => {
                     engine.camera.vel[0] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::S), .. } => {
-                    engine.camera.vel[2] = -cspeed;
+                    engine.camera.vel[2] = -1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::S), .. } => {
                     engine.camera.vel[2] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::D), .. } => {
-                    engine.camera.vel[0] = -cspeed;
+                    engine.camera.vel[0] = -1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::D), .. } => {
                     engine.camera.vel[0] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::E), .. } => {
-                    engine.camera.vel[1] = cspeed;
+                    engine.camera.vel[1] = 1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::E), .. } => {
                     engine.camera.vel[1] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Q), .. } => {
-                    engine.camera.vel[1] = -cspeed;
+                    engine.camera.vel[1] = -1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::Q), .. } => {
                     engine.camera.vel[1] = 0.0;
                 },
@@ -300,13 +296,13 @@ fn main() {
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Left), .. } => {
-                    engine.camera.rot_vel[1] = rspeed;
+                    engine.camera.rot_vel[1] = -rspeed;
                 }, Event::KeyUp {keycode: Some(Keycode::Left), .. } => {
                     engine.camera.rot_vel[1] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Right), .. } => {
-                    engine.camera.rot_vel[1] = -rspeed;
+                    engine.camera.rot_vel[1] = rspeed;
                 }, Event::KeyUp {keycode: Some(Keycode::Right), .. } => {
                     engine.camera.rot_vel[1] = 0.0;
                 },
@@ -325,23 +321,32 @@ fn main() {
         //The rest of the game loop goes here...
         //ok
         //sort_objs(&mut engine);
-
-        let cam = engine.camera;
-        engine.camera.rot = cam.rot.add(cam.rot_vel.scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0]));
-        engine.camera.pos = cam.pos.add(
-            cam.vel.multiply_mat([
-                [engine.camera.rot[1].cos(), engine.camera.rot[2].sin(), -engine.camera.rot[1].sin(), 0.0],
-                [engine.camera.rot[2].sin(), engine.camera.rot[0].cos(), engine.camera.rot[0].sin(), 0.0],
-                [engine.camera.rot[1].sin(), -engine.camera.rot[0].sin(), engine.camera.rot[1].cos(), 0.0],
-                [0.0, 0.0, 0.0, 1.0]
-            ]).scale([1.0/FPS, 1.0/FPS, 1.0/FPS, 1.0])
-        );
+        
+        
+        //update camera
+        let rvel = engine.camera.rot_vel.scale_c(1.0/FPS);
+        engine.camera.dir = engine.camera.dir.multiply_mat(Engine::y_rot(rvel[1]));
+        
+        let cam_fwd = engine.camera.dir.normalize();
+        let cam_up = world_up.subtract(engine.camera.dir.scale_c(world_up.dot_product(engine.camera.dir))).normalize();
+        let cam_right = cam_up.cross_product(engine.camera.dir).normalize();
+        
+        let mvel = [
+            engine.camera.vel.dot_product(cam_right), 
+            engine.camera.vel.dot_product(cam_up),
+            engine.camera.vel.dot_product(cam_fwd),
+            1.0
+        ].scale_c(cspeed/FPS);
+            
+        engine.camera.pos = engine.camera.pos.add(mvel);
         let ew = engine.camera.window_width/2.0; let eh = engine.camera.window_height/2.0;
+        
+        let cam_pmat = world::point_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
+        let cam_mat = world::look_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
         
         //view space
         let z_clip = [0.0, 0.0, engine.camera.clip_distance, 1.0];
         let z_clip_n = [0.0, 0.0, 1.0, 1.0];
-
 
         for i in 0..engine.objects.len(){
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
@@ -350,18 +355,14 @@ fn main() {
             }
         }
              
-        for i in 0..engine.objects.len(){
-
-
-            
-            
-            let obj = engine.objects[i].upd(list_id_sc, cam.pos.negative(), cam.rot.negative(), cam.pos);
+        for i in 0..engine.objects.len(){            
+            let obj = engine.objects[i].multiply_mat(cam_mat);
             
             for j  in 0..obj.tris.len(){
 
                 let normal = obj.tris[j].normal();
                 let c = obj.tris[j].center();
-                if normal.dot_product(c) <= 0.0 {
+                if normal.dot_product(c) >= 0.0 {
                     let mut trs = [Tri3d::empty(), Tri3d::empty()];
                     let t_clipped = clip_tri(z_clip, z_clip_n, obj.tris[j], &mut trs);
                     for n in 0..t_clipped{
@@ -410,7 +411,7 @@ fn main() {
                         //    o,     
                         //    g,
                         //    h,
-                        //    Color::WHITE
+                        //    Color::GRAY
                         //);
                                 
                     }
@@ -428,6 +429,21 @@ fn main() {
             5,
             5,
             &format!("FPS: {}", fps_manager.get_framerate()).to_string(),
+            Color::WHITE
+        );
+
+
+        canvas.string(
+            5,
+            25,
+            &format!("pos: (x: {}, y: {}, z: {})", engine.camera.pos[0], engine.camera.pos[1], engine.camera.pos[2]).to_string(),
+            Color::WHITE
+        );
+
+        canvas.string(
+            5,
+            45,
+            &format!("dir: (x: {}, y: {}, z: {})", engine.camera.dir[0], engine.camera.dir[1], engine.camera.dir[2]).to_string(),
             Color::WHITE
         );
         canvas.present();

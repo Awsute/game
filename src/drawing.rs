@@ -208,9 +208,8 @@ impl DrawTri for WindowCanvas{
                                 
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t));
                                 
-                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize().negative());
-                                let g = (dp*255.0) as u8;
-                                let c = (light.is_lit(point)*255.0) as u8;
+                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize());
+                                let mut c = (light.is_lit(point)*255.0) as u8;
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
@@ -218,9 +217,9 @@ impl DrawTri for WindowCanvas{
                                         Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
                                             Color::from((c, c, c)).blend(light.col)
                                         )
-                                        //.blend(
-                                        //    Color::from((g, g, g))
-                                        //)
+                                        .avg(
+                                            Color::GRAY
+                                        )
                                     } else {
                                         Color::BLACK
                                     }

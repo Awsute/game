@@ -4,14 +4,14 @@ use std::io::{Read, BufReader, BufRead};
 use crate::Vec3;
 use crate::Tri3d;
 use sdl2::surface::{Surface};
-
+use crate::ops::operations4x4;
 
 
 #[derive(Copy, Clone)]
 pub struct Camera{
     pub fov : f32,
     pub pos : [f32;4],
-    pub rot : [f32;4],
+    pub dir : [f32;4],
     pub vel : [f32;4],
     pub rot_vel : [f32;4],
     pub clip_distance : f32,
@@ -34,6 +34,14 @@ pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f3
         [0.0, 0.0, zratio, 1.0],
         [0.0, 0.0, -clip_distance*zratio, 0.0]
     ];
+}
+pub fn matrix3d_ortho(r:f32, l:f32, t:f32, b:f32, near:f32, far:f32)->[[f32;4];4]{
+    return [
+        [2.0/(r-l), 0.0, 0.0, 0.0],
+        [0.0, 2.0/(t-b), 0.0, 0.0],
+        [0.0, 0.0, 2.0/(far-near), -near/(far-near)],
+        [0.0, 0.0, 0.0, 1.0]
+    ]
 }
 impl Engine{
 
@@ -236,5 +244,62 @@ impl Mesh{
         }).collect::<Vec<Tri3d>>();
         return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel};
     }
+    pub fn multiply_mat(&self, mat:[[f32;4];4])->Self{
+        let ts = self.tris.iter().map(|&i|{
+            return i.multiply_mat(mat)
+        }).collect::<Vec<Tri3d>>();
+        return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel};
+    }
 
+}
+
+
+
+pub fn point_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
+    let forward = target.subtract(pos).normalize();
+    
+    let up = up.subtract(forward.scale_c(up.dot_product(forward))).normalize();
+    
+    let right = up.cross_product(forward).normalize();
+    
+    return [
+        [right[0], right[1], right[2], 0.0],
+        [up[0], up[1], up[2], 0.0],
+        [forward[0], forward[1], forward[2], 0.0],
+        [pos[0], pos[1], pos[2], 1.0]
+    ];
+}
+fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
+//    mat4x4 matrix;
+//    matrix.m[0][0] = m.m[0][0]; matrix.m[0][1] = m.m[1][0]; matrix.m[0][2] = m.m[2][0]; matrix.m[0][3] = 0.0f;
+//    matrix.m[1][0] = m.m[0][1]; matrix.m[1][1] = m.m[1][1]; matrix.m[1][2] = m.m[2][1]; matrix.m[1][3] = 0.0f;
+//    matrix.m[2][0] = m.m[0][2]; matrix.m[2][1] = m.m[1][2]; matrix.m[2][2] = m.m[2][2]; matrix.m[2][3] = 0.0f;
+//    matrix.m[3][0] = -(m.m[3][0] * matrix.m[0][0] + m.m[3][1] * matrix.m[1][0] + m.m[3][2] * matrix.m[2][0]);
+//    matrix.m[3][1] = -(m.m[3][0] * matrix.m[0][1] + m.m[3][1] * matrix.m[1][1] + m.m[3][2] * matrix.m[2][1]);
+//    matrix.m[3][2] = -(m.m[3][0] * matrix.m[0][2] + m.m[3][1] * matrix.m[1][2] + m.m[3][2] * matrix.m[2][2]);
+//    matrix.m[3][3] = 1.0f;
+//yes i copied olc what are you gonna do abt it
+    return [
+        [m[0][0], m[1][0], m[2][0], 0.0],
+        [m[0][1], m[1][1], m[2][1], 0.0],
+        [m[0][2], m[1][2], m[2][2], 0.0],
+        [
+            -(m[3][0] * m[0][0] + m[3][1] * m[0][1] + m[3][2] * m[0][2]), 
+            -(m[3][0] * m[1][0] + m[3][1] * m[1][1] + m[3][2] * m[1][2]), 
+            -(m[3][0] * m[2][0] + m[3][1] * m[2][1] + m[3][2] * m[2][2]), 
+            1.0
+        ]
+    ]
+}
+pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
+    return quick_inv(point_at(pos, target, up));
+}
+pub fn world_transform(rot:[f32;4], t:[f32;4])->[[f32;4];4]{
+    return Engine::z_rot(rot[2]).multiply(Engine::y_rot(rot[1])).multiply(Engine::x_rot(rot[0])).multiply([
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [t[0], t[1], t[2], 1.0]
+    ]);
+    
 }

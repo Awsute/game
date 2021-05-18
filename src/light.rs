@@ -1,6 +1,6 @@
 use sdl2::pixels::{Color};
-use crate::Engine;
-use crate::ops::{Tri3d, Vec3, operations4x4, look_at};
+use crate::world::{Engine, look_at, point_at};
+use crate::ops::{Tri3d, Vec3, operations4x4};
 use std::mem::swap;
 
 pub struct Light{
@@ -8,29 +8,26 @@ pub struct Light{
     pub col : Color,
     pub dir : [f32;4],
     pub proj_mat : [[f32;4];4],
-    pub buf : Vec<f32>
+    pub buf : Vec<f32>,
 }
-pub const SHADOW_RESOLUTION : (usize, usize) = (512, 512);
+pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
 
 impl Light{
     pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4])->Self{
-        return Light{pos, col, dir, proj_mat : proj_mat.multiply(look_at(pos, [0.1, 0.1, 5.0, 1.0], [0.0, 1.0, 0.0, 1.0])), buf:Vec::new()};
+        return Light{pos, col, dir, proj_mat : proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1]};
     }
-
     pub fn edit_shadow_buffer(&mut self, tri : Tri3d){
-        if self.buf.len() < SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1{
-            for i in self.buf.len()..SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1{
-                self.buf.push(0.0);
-            }
-        }
         let rw = SHADOW_RESOLUTION.0 as f32/2.0;
         let rh = SHADOW_RESOLUTION.1 as f32/2.0;
-                    
-        let t = tri.multiply_mat(self.proj_mat);
+        if tri.normal().dot_product(tri.center()) >= 0.0{
+            return;
+        }
+        let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat).scale([-rw, -rh, 1.0, 1.0]);
+        
         let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3];
-        let mut c1 = [(t.ps[0][0]+rw), (t.ps[0][1]+rh), 100.0/t.ps[0][2]];    
-        let mut c2 = [(t.ps[1][0]+rw), (t.ps[1][1]+rh), 100.0/t.ps[1][2]];
-        let mut c3 = [(t.ps[2][0]+rw), (t.ps[2][1]+rh), 100.0/t.ps[2][2]];
+        let mut c1 = [(t.ps[0][0]/t03+rw), (t.ps[0][1]/t03+rh), 1.0/t.ps[0][3]];    
+        let mut c2 = [(t.ps[1][0]/t13+rw), (t.ps[1][1]/t13+rh), 1.0/t.ps[1][3]];
+        let mut c3 = [(t.ps[2][0]/t23+rw), (t.ps[2][1]/t23+rh), 1.0/t.ps[2][3]];
         if c1[1] > c2[1]{
             swap(&mut c1, &mut c2);
         }
@@ -107,12 +104,14 @@ impl Light{
                 }
                 let tstep = 1.0/(bx - ax) as f32;
                 for x in ax..bx{
+                    
                     if x > 0 && x < SHADOW_RESOLUTION.0 as i32{
                         
                         let t = (x-ax) as f32*tstep;
                         let z = (1.0 - t) * az + t * bz;
-                        if z <= self.buf[x as usize + SHADOW_RESOLUTION.0 * y as usize]{
-                            self.buf[x as usize + SHADOW_RESOLUTION.0 * y as usize] = z;
+                        let ind = x as usize + SHADOW_RESOLUTION.0 * y as usize;
+                        if z < self.buf[ind] && z > 0.0 && z < 1.0{
+                            self.buf[ind] = z;
                         }
                     }
                 }
@@ -122,14 +121,15 @@ impl Light{
     pub fn is_lit(&mut self, point:[f32;4])->f32{
         let rw = SHADOW_RESOLUTION.0 as f32/2.0;
         let rh = SHADOW_RESOLUTION.1 as f32/2.0;
-        let t = point.multiply_mat(self.proj_mat);
-        let f = [(t[0]+rw), (t[1]+rh), 100.0/t[2]]; 
-        let d_val = f[2];
-        if SHADOW_RESOLUTION.0 > f[0] as usize && SHADOW_RESOLUTION.1 > f[1] as usize {
-            if d_val >= self.buf[f[0] as usize + SHADOW_RESOLUTION.0 * f[1] as usize]{
-                //self.buf[f[0] as usize + SHADOW_RESOLUTION.0 * f[1] as usize] = d_val;
-                return -d_val;
-            }
+        let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
+        let f = [(-t[0]*rw/t[3]+rw) as usize, (-t[1]*rh/t[3]+rh) as usize]; 
+        let d_val = 1.0/t[3];
+        let ind = f[0] + SHADOW_RESOLUTION.0 * f[1];
+        if ind < SHADOW_RESOLUTION.1*SHADOW_RESOLUTION.1 {
+            //if d_val <= self.buf[ind] && d_val > 0.0 && d_val < 1.0{
+                //self.buf[ind] = d_val;
+                return 1.0
+            //}
         }
         return 0.0;
         
