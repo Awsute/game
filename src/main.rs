@@ -208,9 +208,16 @@ fn main() {
         window_width : screen_width as f32,
         
     };
-    let mut texture_draw : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
+    let mut tex1 : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
 
-    texture_draw.apply_fn(&|x, y, w, h, p, c|->Color{
+    tex1.apply_fn(&|x, y, w, h, p, c|->Color{
+        return Color::WHITE;
+    });
+
+
+    let mut tex2 : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
+
+    tex2.apply_fn(&|x, y, w, h, p, c|->Color{
         return Color::WHITE;
     });
 
@@ -222,10 +229,11 @@ fn main() {
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize]
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string()).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(), "assets/dabebe.png".to_string(), Color::WHITE).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/travisScot.png".to_string(), Color::WHITE).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([15.0, 2.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_perspective(90_f32.to_radians(), 100.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32));
+    let mut l_src = Light::new([10.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_ortho(10.0, 10.0, 0.1, 50.0));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
     engine.camera.pos = l_src.pos;
     engine.camera.dir = l_src.dir;
@@ -337,17 +345,16 @@ fn main() {
             engine.camera.vel.dot_product(cam_fwd),
             1.0
         ].scale_c(cspeed/FPS);
-            
         engine.camera.pos = engine.camera.pos.add(mvel);
         let ew = engine.camera.window_width/2.0; let eh = engine.camera.window_height/2.0;
         
         let cam_pmat = world::point_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
         let cam_mat = world::look_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
-        
         //view space
         let z_clip = [0.0, 0.0, engine.camera.clip_distance, 1.0];
         let z_clip_n = [0.0, 0.0, 1.0, 1.0];
-
+        
+        l_src.buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
         for i in 0..engine.objects.len(){
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
@@ -357,7 +364,10 @@ fn main() {
              
         for i in 0..engine.objects.len(){            
             let obj = engine.objects[i].multiply_mat(cam_mat);
-            
+            let mut otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
+            otex.apply_fn(&|x, y, w, h, p, c|->Color{
+                return Color::WHITE;
+            });
             for j  in 0..obj.tris.len(){
 
                 let normal = obj.tris[j].normal();
@@ -367,7 +377,7 @@ fn main() {
                     let t_clipped = clip_tri(z_clip, z_clip_n, obj.tris[j], &mut trs);
                     for n in 0..t_clipped{
                         let mut tri = trs[n];
-                        let t = tri.scale([ew, eh, 1.0, 1.0]).multiply_mat(mat3d);
+                        let t = tri.multiply_mat(mat3d).scale([ew, eh, 1.0, 1.0]);
                         //let dp  = normal.dot_product([0.0, 0.0, -1.0, 1.0]);
                         //let darkness = (255.0*dp) as u8;
                         let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3]; 
@@ -393,25 +403,27 @@ fn main() {
                         tri.uvs[0][2] = 1.0/t03;
                         tri.uvs[1][2] = 1.0/t13;
                         tri.uvs[2][2] = 1.0/t23;
+
                         let etri = engine.objects[i].tris[j];
+                        
                         
                         canvas.textured_triangle(
                             [o, g, h],
                             [tri.uvs[0], tri.uvs[1], tri.uvs[2]],
-                            texture_draw.without_lock().unwrap(),
-                            texture_draw.pitch() as usize,
-                            texture_draw.width() as f32,
-                            texture_draw.height() as f32,
+                            otex.without_lock().unwrap(),
+                            otex.pitch() as usize,
+                            otex.width() as f32,
+                            otex.height() as f32,
                             &mut engine,
                             etri,
                             &mut l_src
                         );
 
                         //canvas.draw_triangle(
-                        //    o,     
+                        //    o,
                         //    g,
                         //    h,
-                        //    Color::GRAY
+                        //    Color::BLACK
                         //);
                                 
                     }

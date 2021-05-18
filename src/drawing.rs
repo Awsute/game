@@ -1,7 +1,7 @@
 extern crate sdl2;
 use sdl2::{render::{WindowCanvas}, pixels::{Color}};
 use std::mem::swap;
-use crate::Engine;
+use crate::world::{Engine, look_at, point_at};
 use crate::{Vec3, Tri3d};
 use sdl2::gfx::primitives::DrawRenderer;
 use crate::ColFuncs;
@@ -46,6 +46,8 @@ impl DrawTri for WindowCanvas{
         let mut v1 = tri_info.ps[0];
         let mut v2 = tri_info.ps[1];
         let mut v3 = tri_info.ps[2];
+
+
         if c1[1] > c2[1]{
             swap(&mut c1, &mut c2);
             swap(&mut i1, &mut i2);
@@ -207,18 +209,15 @@ impl DrawTri for WindowCanvas{
                                 let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
                                 
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t));
-                                
-                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize());
-                                let mut c = (light.is_lit(point)*255.0) as u8;
+                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize().negative());
+                                let c = (dp*255.0) as u8;
+                                let g = (light.is_lit(point)*255.0) as u8;
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
                                     if ind < buffer.len()-2{
                                         Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
-                                            Color::from((c, c, c)).blend(light.col)
-                                        )
-                                        .avg(
-                                            Color::GRAY
+                                            Color::from((c, c, c)).blend(light.col).blend(Color::from((g, g, g))).avg(Color::GRAY)
                                         )
                                     } else {
                                         Color::BLACK

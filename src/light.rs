@@ -10,24 +10,26 @@ pub struct Light{
     pub proj_mat : [[f32;4];4],
     pub buf : Vec<f32>,
 }
-pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
+pub const SHADOW_RESOLUTION : (usize, usize) = (4096, 4096);
 
 impl Light{
     pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4])->Self{
         return Light{pos, col, dir, proj_mat : proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1]};
     }
+    #[inline]
     pub fn edit_shadow_buffer(&mut self, tri : Tri3d){
         let rw = SHADOW_RESOLUTION.0 as f32/2.0;
         let rh = SHADOW_RESOLUTION.1 as f32/2.0;
-        if tri.normal().dot_product(tri.center()) >= 0.0{
+
+        let tr = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0]));
+        if tr.normal().dot_product(tr.ps[0]) >= 0.0{
             return;
         }
-        let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat).scale([-rw, -rh, 1.0, 1.0]);
-        
+        let t = tr.multiply_mat(self.proj_mat).scale([rw, rh, 1.0, 1.0]);
         let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3];
-        let mut c1 = [(t.ps[0][0]/t03+rw), (t.ps[0][1]/t03+rh), 1.0/t.ps[0][3]];    
-        let mut c2 = [(t.ps[1][0]/t13+rw), (t.ps[1][1]/t13+rh), 1.0/t.ps[1][3]];
-        let mut c3 = [(t.ps[2][0]/t23+rw), (t.ps[2][1]/t23+rh), 1.0/t.ps[2][3]];
+        let mut c1 = [(t.ps[0][0]/t03+rw), (t.ps[0][1]/t03+rh), -t.ps[0][2]];    
+        let mut c2 = [(t.ps[1][0]/t13+rw), (t.ps[1][1]/t13+rh), -t.ps[1][2]];
+        let mut c3 = [(t.ps[2][0]/t23+rw), (t.ps[2][1]/t23+rh), -t.ps[2][2]];
         if c1[1] > c2[1]{
             swap(&mut c1, &mut c2);
         }
@@ -118,18 +120,18 @@ impl Light{
             }
         }
     }
+    #[inline]
     pub fn is_lit(&mut self, point:[f32;4])->f32{
         let rw = SHADOW_RESOLUTION.0 as f32/2.0;
         let rh = SHADOW_RESOLUTION.1 as f32/2.0;
         let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
-        let f = [(-t[0]*rw/t[3]+rw) as usize, (-t[1]*rh/t[3]+rh) as usize]; 
-        let d_val = 1.0/t[3];
+        let f = [(t[0]*rw/t[3]+rw) as usize, (t[1]*rh/t[3]+rh) as usize]; 
+        let d_val = -t[2];
         let ind = f[0] + SHADOW_RESOLUTION.0 * f[1];
         if ind < SHADOW_RESOLUTION.1*SHADOW_RESOLUTION.1 {
-            //if d_val <= self.buf[ind] && d_val > 0.0 && d_val < 1.0{
-                //self.buf[ind] = d_val;
+            if d_val-0.005 <= self.buf[ind] && d_val > 0.0 && d_val < 1.0{
                 return 1.0
-            //}
+            }
         }
         return 0.0;
         

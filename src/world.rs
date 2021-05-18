@@ -3,9 +3,9 @@ use std::io::{Read, BufReader, BufRead};
 
 use crate::Vec3;
 use crate::Tri3d;
-use sdl2::surface::{Surface};
+use sdl2::surface::{Surface, SurfaceRef, SurfaceContext};
 use crate::ops::operations4x4;
-
+use sdl2::pixels::Color;
 
 #[derive(Copy, Clone)]
 pub struct Camera{
@@ -35,11 +35,11 @@ pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f3
         [0.0, 0.0, -clip_distance*zratio, 0.0]
     ];
 }
-pub fn matrix3d_ortho(r:f32, l:f32, t:f32, b:f32, near:f32, far:f32)->[[f32;4];4]{
+pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
     return [
-        [2.0/(r-l), 0.0, 0.0, 0.0],
-        [0.0, 2.0/(t-b), 0.0, 0.0],
-        [0.0, 0.0, 2.0/(far-near), -near/(far-near)],
+        [1.0/(r), 0.0, 0.0, 0.0],
+        [0.0, 1.0/(t), 0.0, 0.0],
+        [0.0, 0.0, -2.0/(f-n), -(f+n)/(f-n)],
         [0.0, 0.0, 0.0, 1.0]
     ]
 }
@@ -77,11 +77,13 @@ pub struct Mesh{
     pub rot : [f32;4],
     pub vel : [f32;4],
     pub rot_vel : [f32;4],
+    pub tex : String,
+    pub col : Color
 }
 
 impl Mesh{
-    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, texture : Surface)->Self{
-        return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0]};
+    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, tex : String, col:Color)->Self{
+        return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0], tex, col};
     }
     #[inline]
     pub fn center(&self)->[f32;4]{
@@ -93,7 +95,7 @@ impl Mesh{
         return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
 
-    pub fn load_obj_file(file_path:String)->Self{
+    pub fn load_obj_file(file_path:String, tex:String, col:Color)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
         let mut ts : Vec<Tri3d> = Vec::new();
@@ -202,21 +204,21 @@ impl Mesh{
                 }
             }
         }
-        return Mesh{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0]};
+        return Mesh{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0], tex, col};
     }
     pub fn translate(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.translate(t));
         }
-        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel};
+        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
     }
     pub fn scale(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.scale(t));
         }
-        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel};
+        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
     }
     pub fn rotate_point(&self, deg : [f32;4], point : [f32;4])->Self{
         let mut ts = Vec::new();
@@ -233,7 +235,7 @@ impl Mesh{
             }
             ts[i] = ts[i].translate(point);
         }
-        return Mesh{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel};
+        return Mesh{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
     }
     #[inline]
     pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4])->Self{
@@ -242,13 +244,13 @@ impl Mesh{
         let ts = self.tris.iter().map(|&i|{
             return i.upd(scalar, trans, rot, rot_point, center);
         }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel};
+        return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
     }
     pub fn multiply_mat(&self, mat:[[f32;4];4])->Self{
         let ts = self.tris.iter().map(|&i|{
             return i.multiply_mat(mat)
         }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel};
+        return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
     }
 
 }
