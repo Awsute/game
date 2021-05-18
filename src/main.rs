@@ -105,9 +105,11 @@ fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mu
     let plane_n = plane_n.normalize();
 
     let dist = |p : [f32;4]|->f32{
-        return p.dot_product(plane_n)-plane_n.dot_product(plane_p);
+        return p.dot_product(plane_n)-plane_n.dot_product(plane_p)
     };
-
+    let sub2d = |p1:[f32;3], p2:[f32;3]|->[f32;3]{
+        return [p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[1]]
+    };
     let mut in_points = Vec::new();
     let mut out_points = Vec::new();
 
@@ -133,9 +135,22 @@ fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mu
     } else if in_points.len() == 0 {
         return 0;
     } else if in_points.len() == 1{
+
+
         out_tris[0].ps[0] = in_points[0];
         out_tris[0].ps[1] = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
         out_tris[0].ps[2] = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
+
+
+        let odist_ab = in_points[0].subtract(out_points[0]).magnitude();
+        let ndist_ab = out_tris[0].ps[0].subtract(out_tris[0].ps[0]).magnitude();
+
+        
+
+        let uv1 = in_tri.uvs[0];
+        let uv2 = in_tri.uvs[1];
+        let uv3 = in_tri.uvs[2];
+
         return 1;
     } else if in_points.len() == 2{
 
