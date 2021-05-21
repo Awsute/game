@@ -11,20 +11,19 @@ pub struct Light{
     pub buf : Vec<f32>,
     pub spot : bool
 }
-pub const SHADOW_RESOLUTION : (usize, usize) = (2048, 2048);
+pub const SHADOW_RESOLUTION : (usize, usize) = (512, 512);
 
 impl Light{
     pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4], spot:bool)->Self{
-        return Light{pos, col, dir, proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1], spot};
+        return Light{pos, col, dir:dir.normalize(), proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1], spot};
     }
     #[inline]
     pub fn edit_shadow_buffer(&mut self, tri : Tri3d){
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
 
-        let tr = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0]));
 
-        let t = tr.multiply_mat(self.proj_mat).scale([rw, rh, 1.0, 1.0]);
+        let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat).scale([rw, rh, 1.0, 1.0]);
 
         let mut c1 = [(t.ps[0][0]+rw), (t.ps[0][1]+rh), -t.ps[0][2]];    
         let mut c2 = [(t.ps[1][0]+rw), (t.ps[1][1]+rh), -t.ps[1][2]];

@@ -197,39 +197,47 @@ impl DrawTri for WindowCanvas{
                         swap(&mut point_s, &mut point_e);
                     }
                     let tstep = 1.0/(bx - ax) as f32;
+
                     for x in ax..bx{
                         if x > 0 && x < s.0 as i32{
                             
                             let t = (x-ax) as f32*tstep;
-                            let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
+                            let t1 = 1.0-t;
+                            let tex_w = t1 * tex_sw + t * tex_ew;
                             let dbi = (x+s.0 as i32*y) as usize;
+                            let tr_buf = engine.transparency_buffer[dbi];
+                            let d_buf = engine.depth_buffer[dbi];
 
-                            if engine.transparency_buffer[dbi].0 <= tri_info.opacity || tex_w > engine.depth_buffer[dbi]{
-                                let d = engine.transparency_buffer[dbi].1;
-                                let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
-                                let norm = ls.scale_c(1.0-t).add(le.scale_c(t));
-                                let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
-                                let dp = norm.dot_product(light.dir.normalize().negative());
-                                let c = (dp*255.0) as u8;
-                                let g = (light.is_lit(point)*255.0) as u8;
-                                let mut col = if ind < buffer.len()-2{
-                                    Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
-                                        Color::from((c, c, c)).blend(light.col).blend(Color::from((g, g, g))).avg(ambient)
-                                    ).avg(d)
+                            if tr_buf.0 <= tri_info.opacity || tex_w > d_buf{
+                                
+                                let ind = (pitch/width as usize) * ((width-0.1) * (t1 * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * (t1 * tex_sv + t * tex_ev)/tex_w) as usize;
+                                let tr = tr_buf.0;
+                                let mut d : Color;
+                                let shadowed = light.is_lit(point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w));
+                                let col = if ind < buffer.len()-2{
+                                    let gc = (
+                                        ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.negative())
+                                        *shadowed*255.0
+                                    ) as u8;
+                                    Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(
+                                        Color::RGB(gc, gc, gc).blend(light.col).avg(ambient)
+                                    )
                                 } else {
                                     Color::BLACK
                                 };
-                                if tex_w > engine.depth_buffer[dbi]{
+                                
+                                if tex_w > d_buf{
                                     engine.depth_buffer[dbi] = tex_w;
                                     engine.transparency_buffer[dbi].0 = tri_info.opacity;
+                                    d = col;
                                     engine.transparency_buffer[dbi].1 = col;
                                 } else {
-                                    
+                                    d = tr_buf.1
                                 }
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
-                                    col
+                                    col.avg(d)
                                 ); 
                             }
                         }
