@@ -23,7 +23,8 @@ pub struct Camera{
 pub struct Engine{
     pub camera : Camera,
     pub objects : Vec<Mesh>,
-    pub depth_buffer : Vec<f32>
+    pub depth_buffer : Vec<f32>,
+    pub transparency_buffer : Vec<(f32, Color)>
 }
 pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f32, window_width : f32, window_height : f32)->[[f32;4];4]{
     let t = ((fov/2.0)*(std::f32::consts::PI/180.0)).tan();
@@ -78,12 +79,11 @@ pub struct Mesh{
     pub vel : [f32;4],
     pub rot_vel : [f32;4],
     pub tex : String,
-    pub col : Color
 }
 
 impl Mesh{
-    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, tex : String, col:Color)->Self{
-        return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0], tex, col};
+    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, tex : String)->Self{
+        return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0], tex};
     }
     #[inline]
     pub fn center(&self)->[f32;4]{
@@ -95,7 +95,7 @@ impl Mesh{
         return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
 
-    pub fn load_obj_file(file_path:String, tex:String, col:Color)->Self{
+    pub fn load_obj_file(file_path:String, tex:String, col:Color, opacity:f32)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
         let mut ts : Vec<Tri3d> = Vec::new();
@@ -140,6 +140,8 @@ impl Mesh{
                                     [0.0, 0.0, 0.0, 1.0],
                                     [0.0, 0.0, 0.0, 1.0]
                                 ],
+                                col,
+                                opacity
                             )
                         );
 
@@ -161,6 +163,8 @@ impl Mesh{
                                     [0.0, 0.0, 0.0, 1.0],
                                     [0.0, 0.0, 0.0, 1.0]
                                 ],
+                                col,
+                                opacity
                             )
                         );
                     } else if p1.len() == 3{
@@ -180,7 +184,9 @@ impl Mesh{
                                     t_n[p1[2].parse::<usize>().unwrap()-1],
                                     t_n[p2[2].parse::<usize>().unwrap()-1],
                                     t_n[p3[2].parse::<usize>().unwrap()-1]
-                                ]
+                                ],
+                                col,
+                                opacity
                             )
                         );
                     }
@@ -204,21 +210,21 @@ impl Mesh{
                 }
             }
         }
-        return Mesh{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0], tex, col};
+        return Mesh{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0], tex};
     }
     pub fn translate(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.translate(t));
         }
-        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
+        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
     pub fn scale(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.scale(t));
         }
-        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
+        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
     pub fn rotate_point(&self, deg : [f32;4], point : [f32;4])->Self{
         let mut ts = Vec::new();
@@ -235,7 +241,7 @@ impl Mesh{
             }
             ts[i] = ts[i].translate(point);
         }
-        return Mesh{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
+        return Mesh{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
     #[inline]
     pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4])->Self{
@@ -244,13 +250,13 @@ impl Mesh{
         let ts = self.tris.iter().map(|&i|{
             return i.upd(scalar, trans, rot, rot_point, center);
         }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
+        return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
     pub fn multiply_mat(&self, mat:[[f32;4];4])->Self{
         let ts = self.tris.iter().map(|&i|{
             return i.multiply_mat(mat)
         }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string(), col:self.col};
+        return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
 
 }
@@ -296,12 +302,10 @@ fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
 pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
     return quick_inv(point_at(pos, target, up));
 }
-pub fn world_transform(rot:[f32;4], t:[f32;4])->[[f32;4];4]{
-    return Engine::z_rot(rot[2]).multiply(Engine::y_rot(rot[1])).multiply(Engine::x_rot(rot[0])).multiply([
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [t[0], t[1], t[2], 1.0]
-    ]);
-    
-}
+
+pub const POISSON_DISK : [[f32;2];4] = [
+    [-0.94201624, -0.39906216],
+    [0.94558609, -0.76890725],
+    [-0.094184101, -0.92938870],
+    [0.34495938, 0.29387760]
+];
