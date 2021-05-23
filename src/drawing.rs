@@ -10,7 +10,7 @@ use crate::light::Light;
 pub trait DrawTri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light, ambient:Color);
+    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light);
 }
 impl DrawTri for WindowCanvas{
     #[inline]
@@ -31,7 +31,7 @@ impl DrawTri for WindowCanvas{
         
     }
     #[inline]
-    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light, ambient:Color){
+    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light){
         let s = (engine.camera.window_width, engine.camera.window_height);
         let mut c1 = p[0];
         let mut c2 = p[1];
@@ -197,47 +197,31 @@ impl DrawTri for WindowCanvas{
                         swap(&mut point_s, &mut point_e);
                     }
                     let tstep = 1.0/(bx - ax) as f32;
-
                     for x in ax..bx{
                         if x > 0 && x < s.0 as i32{
                             
                             let t = (x-ax) as f32*tstep;
-                            let t1 = 1.0-t;
-                            let tex_w = t1 * tex_sw + t * tex_ew;
+                            let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
                             let dbi = (x+s.0 as i32*y) as usize;
-                            let tr_buf = engine.transparency_buffer[dbi];
-                            let d_buf = engine.depth_buffer[dbi];
 
-                            if tr_buf.0 <= tri_info.opacity || tex_w > d_buf{
+                            if tex_w > engine.depth_buffer[dbi]{
+                                engine.depth_buffer[dbi] = tex_w;
+                                let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
                                 
-                                let ind = (pitch/width as usize) * ((width-0.1) * (t1 * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * (t1 * tex_sv + t * tex_ev)/tex_w) as usize;
-                                let tr = tr_buf.0;
-                                let mut d : Color;
-                                let shadowed = light.is_lit(point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w));
-                                let col = if ind < buffer.len()-2{
-                                    let gc = (
-                                        ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.negative())
-                                        *shadowed*255.0
-                                    ) as u8;
-                                    Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(
-                                        Color::RGB(gc, gc, gc).blend(light.col).avg(ambient)
-                                    )
-                                } else {
-                                    Color::BLACK
-                                };
-                                
-                                if tex_w > d_buf{
-                                    engine.depth_buffer[dbi] = tex_w;
-                                    engine.transparency_buffer[dbi].0 = tri_info.opacity;
-                                    d = col;
-                                    engine.transparency_buffer[dbi].1 = col;
-                                } else {
-                                    d = tr_buf.1
-                                }
+                                let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
+                                let dp = ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.normalize().negative());
+                                let c = (dp*255.0) as u8;
+                                let g = (light.is_lit(point)*255.0) as u8;
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
-                                    col.avg(d)
+                                    if ind < buffer.len()-2{
+                                        Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
+                                            Color::from((c, c, c)).blend(light.col).blend(Color::from((g, g, g))).avg(Color::GRAY)
+                                        )
+                                    } else {
+                                        Color::BLACK
+                                    }
                                 ); 
                             }
                         }

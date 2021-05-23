@@ -1,6 +1,7 @@
 use sdl2::pixels::{Color};
+use crate::ColFuncs;
 use crate::world::{Engine, look_at, point_at, POISSON_DISK};
-use crate::ops::{Tri3d, Vec3, operations4x4, max, min};
+use crate::ops::{Tri3d, Vec3, operations4x4};
 use std::mem::swap;
 
 pub struct Light{
@@ -9,25 +10,27 @@ pub struct Light{
     pub dir : [f32;4],
     pub proj_mat : [[f32;4];4],
     pub buf : Vec<f32>,
-    pub spot : bool
 }
-pub const SHADOW_RESOLUTION : (usize, usize) = (512, 512);
+pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
 
 impl Light{
-    pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4], spot:bool)->Self{
-        return Light{pos, col, dir:dir.normalize(), proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1], spot};
+    pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4])->Self{
+        return Light{pos, col, dir, proj_mat : proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1]};
     }
     #[inline]
     pub fn edit_shadow_buffer(&mut self, tri : Tri3d){
-        let rw = SHADOW_RESOLUTION.0 as f32*0.5;
-        let rh = SHADOW_RESOLUTION.1 as f32*0.5;
+        let rw = SHADOW_RESOLUTION.0 as f32/2.0;
+        let rh = SHADOW_RESOLUTION.1 as f32/2.0;
 
-
-        let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat).scale([rw, rh, 1.0, 1.0]);
-
-        let mut c1 = [(t.ps[0][0]+rw), (t.ps[0][1]+rh), -t.ps[0][2]];    
-        let mut c2 = [(t.ps[1][0]+rw), (t.ps[1][1]+rh), -t.ps[1][2]];
-        let mut c3 = [(t.ps[2][0]+rw), (t.ps[2][1]+rh), -t.ps[2][2]];
+        let tr = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0]));
+        if tr.normal().dot_product(tr.ps[0]) >= 0.0{
+            return;
+        }
+        let t = tr.multiply_mat(self.proj_mat).scale([rw, rh, 1.0, 1.0]);
+        let t03 = t.ps[0][3]; let t13 = t.ps[1][3]; let t23 = t.ps[2][3];
+        let mut c1 = [(t.ps[0][0]/t03+rw), (t.ps[0][1]/t03+rh), -t.ps[0][2]];    
+        let mut c2 = [(t.ps[1][0]/t13+rw), (t.ps[1][1]/t13+rh), -t.ps[1][2]];
+        let mut c3 = [(t.ps[2][0]/t23+rw), (t.ps[2][1]/t23+rh), -t.ps[2][2]];
         if c1[1] > c2[1]{
             swap(&mut c1, &mut c2);
         }
@@ -118,26 +121,23 @@ impl Light{
             }
         }
     }
-    
     #[inline]
     pub fn is_lit(&mut self, point:[f32;4])->f32{
-        let rw = SHADOW_RESOLUTION.0 as f32*0.5;
-        let rh = SHADOW_RESOLUTION.1 as f32*0.5;
-        let b = 0.0075;
+        let rw = SHADOW_RESOLUTION.0 as f32/2.0;
+        let rh = SHADOW_RESOLUTION.1 as f32/2.0;
+        let b = 0.005;
         let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
-        let sp = 1.0/700.0;
+        let f = [(t[0]*rw/t[3]+rw) as usize, (t[1]*rh/t[3]+rh) as usize]; 
         let d_val = -t[2];
-        let mut l = 0.0;
         for i in 0..4{
-            let f = [((t[0]+POISSON_DISK[i][0]*sp)*rw+rw) as usize, ((t[1]+POISSON_DISK[i][1]*sp)*rh+rh) as usize]; 
-            let ind = f[0] + SHADOW_RESOLUTION.0 * f[1];
+            let ind = (f[0] as f32+POISSON_DISK[i][0]) as usize + SHADOW_RESOLUTION.0 * (f[1] as f32+POISSON_DISK[i][1]) as usize;
             if ind < SHADOW_RESOLUTION.1*SHADOW_RESOLUTION.1 {
-                if (d_val-b) <= self.buf[ind] && d_val > 0.0 && d_val < 1.0{
-                    l += 0.25;
+                if d_val-b <= self.buf[ind] && d_val > 0.0 && d_val < 1.0{
+                    return 1.0
                 }
             }
         }
-        return l;
+        return 0.0;
         
     }
 }
