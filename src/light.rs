@@ -1,4 +1,5 @@
 use sdl2::pixels::{Color};
+use crate::ColFuncs;
 use crate::world::{Engine, look_at, point_at, POISSON_DISK};
 use crate::ops::{Tri3d, Vec3, operations4x4, max, min};
 use std::mem::swap;
@@ -11,7 +12,7 @@ pub struct Light{
     pub buf : Vec<f32>,
     pub spot : bool
 }
-pub const SHADOW_RESOLUTION : (usize, usize) = (512, 512);
+pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
 
 impl Light{
     pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4], spot:bool)->Self{

@@ -145,12 +145,12 @@ fn main() {
         camera : player_cam,
         objects : Vec::new(),
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
-        transparency_buffer : vec![(0.0, Color::BLACK); (player_cam.window_height*player_cam.window_width) as usize]
+        transparency_buffer : vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize]
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(), "assets/white.png".to_string(), Color::RED, 1.0).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
-    engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(), "assets/white.png".to_string(), Color::WHITE, 1.0).translate([0.0, 0.0, 5.0, 0.0]));
+    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
     let mut l_src = Light::new([10.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_ortho(10.0, 10.0, 0.1, 50.0), false);
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
@@ -312,7 +312,7 @@ fn main() {
         //reset the buffers only when the camera or objects move
         if cam_moved(&engine.camera) || objs_moved(&engine.objects){
             engine.depth_buffer = vec![0.0; (player_cam.window_height*player_cam.window_width) as usize];
-            engine.transparency_buffer = vec![(0.0, Color::BLACK); (player_cam.window_height*player_cam.window_width) as usize];
+            engine.transparency_buffer = vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize];
         }
         if objs_moved(&engine.objects){
             l_src.buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];

@@ -208,19 +208,29 @@ impl DrawTri for WindowCanvas{
                             let tr_buf = engine.transparency_buffer[dbi];
                             let d_buf = engine.depth_buffer[dbi];
 
-                            if tr_buf.0 <= tri_info.opacity || tex_w > d_buf{
+                            if /*tr_buf.0 < tri_info.opacity ||*/ tex_w >= d_buf{
                                 
                                 let ind = (pitch/width as usize) * ((width-0.1) * (t1 * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * (t1 * tex_sv + t * tex_ev)/tex_w) as usize;
                                 let tr = tr_buf.0;
                                 let mut d : Color;
                                 let shadowed = light.is_lit(point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w));
+                                
+                                //Obj in front(color = ((shaded*light color*shadow value + ambient)/2)
+                                //Obj behind (color = ((shaded*light color*shadow value*color in front.scale(opacity color in front) + ambient)/2)
+                                
                                 let col = if ind < buffer.len()-2{
                                     let gc = (
                                         ls.scale_c(1.0-t).add(le.scale_c(t)).dot_product(light.dir.negative())
-                                        *shadowed*255.0
+                                        *shadowed*(1.0-tr_buf.0)*255.0
                                     ) as u8;
+                                    let c : Color;
+                                    //if shadowed > 0.0{
+                                    //    c = tr_buf.1
+                                    //} else {
+                                    //    c = Color::RGB(gc, gc, gc)
+                                    //}
                                     Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(
-                                        Color::RGB(gc, gc, gc).blend(light.col).avg(ambient)
+                                        Color::RGB(gc, gc, gc)/*.avg(c)*/.blend(light.col).avg(ambient)
                                     )
                                 } else {
                                     Color::BLACK
@@ -237,7 +247,7 @@ impl DrawTri for WindowCanvas{
                                 self.pixel(
                                     x as i16,
                                     y as i16, 
-                                    col.avg(d)
+                                    col//.avg(d)
                                 ); 
                             }
                         }
