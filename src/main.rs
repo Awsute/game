@@ -471,7 +471,7 @@ fn main() {
         }
         if objs_moved(&engine.objects){
             l_src.buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
-        //}
+        }
 
         for i in 0..engine.objects.len(){
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
