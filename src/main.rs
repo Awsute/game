@@ -310,12 +310,11 @@ fn main() {
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(), "assets/white.png".to_string(), Color::RED).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/pigeon.obj".to_string(), "assets/white.png".to_string(), Color::GRAY).translate([0.0, 0.0, 5.0, 0.0]));
     engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
     let mut l_src = Light::new([10.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_ortho(10.0, 10.0, 0.1, 50.0));
-    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string()).translate(l_src.pos));    
     engine.camera.pos = l_src.pos;
     engine.camera.dir = l_src.dir;
     let cspeed = 10.0;
