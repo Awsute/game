@@ -42,7 +42,6 @@ impl Vec3 for [f32;4]{
     fn dot_product(&self, d: Self)->f32{
         return self[0]*d[0] + self[1]*d[1] + self[2]*d[2];
     }
-    #[inline]
     fn multiply_mat(&self, m : [[f32;4];4])->[f32;4]{
         return [
             self[0] * m[0][0] + self[1] * m[1][0] + self[2] * m[2][0] + self[3] * m[3][0],
@@ -95,7 +94,6 @@ impl Tri3d{
     pub fn center(&self)->[f32;4]{
         return self.ps[0].add(self.ps[1]).add(self.ps[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
     }
-    #[inline]
     pub fn multiply_mat(&self, m:[[f32;4];4])->Self{
         return Self::new(
             [
