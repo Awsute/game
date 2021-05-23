@@ -83,15 +83,6 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
 }
 //hi
 
-fn max(n1:f32, n2:f32)->f32{
-    return if n1 > n2{n1} else{n2};
-}
-fn min(n1:f32, n2:f32)->f32{
-    return if n1 < n2{n1} else{n2};
-}
-
-
-
 fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], line_e : [f32;4])->([f32;4], f32){
     let plane_n = plane_n.normalize();
     let plane_d = -plane_p.dot_product(plane_n);
@@ -106,9 +97,6 @@ fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mu
 
     let dist = |p : [f32;4]|->f32{
         return p.dot_product(plane_n)-plane_n.dot_product(plane_p)
-    };
-    let sub2d = |p1:[f32;3], p2:[f32;3]|->[f32;3]{
-        return [p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[1]]
     };
     let mut in_points = Vec::new();
     let mut out_points = Vec::new();
@@ -154,20 +142,20 @@ fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mu
     }
 
     if in_points.len() == 3{
-        out_tris[0].ps = in_tri.ps;
-        out_tris[0].uvs = in_tri.uvs;
-        out_tris[0].ns = in_tri.ns;
-
+        out_tris[0] = in_tri;
         return 1;
     } else if in_points.len() == 0 {
         return 0;
     } else if in_points.len() == 1{
-
+        out_tris[0].col = in_tri.col;
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
         out_tris[0].ps[0] = in_points[0];
         out_tris[0].ps[1] = ab.0;
         out_tris[0].ps[2] = ac.0; 
+
+        
+
         let tab = ab.1;
         
         let tac = ac.1;
@@ -190,48 +178,54 @@ fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mu
         
         return 1;
     } else if in_points.len() == 2{
+        out_tris[0].col = in_tri.col;
+        out_tris[1].col = in_tri.col;
+
 
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+        let tac = ac.1;
+
         out_tris[0].ps[0] = in_points[0];
         out_tris[0].ps[1] = in_points[1];
         out_tris[0].ps[2] = ac.0;
-        
-        let tab = ab.1;
-        
-        let tac = ac.1;
+
 
         out_tris[0].uvs[0] = in_uvs[0];
         out_tris[0].uvs[1] = in_uvs[1];
-
         out_tris[0].uvs[2] = [
             tac*(out_uvs[0][0]-in_uvs[0][0])+in_uvs[0][0], 
             tac*(out_uvs[0][1]-in_uvs[0][1])+in_uvs[0][1], 
-            tac*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2], 
+            tac*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2],
         ];
 
         out_tris[0].ns[0] = in_ns[0];
         out_tris[0].ns[1] = in_ns[1];
         out_tris[0].ns[2] = out_ns[0].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
+
         
+
         
+
+        
+        let tab = ab.1;
         
         out_tris[1].ps[0] = in_points[1];
         out_tris[1].ps[1] = out_tris[0].ps[2];
         out_tris[1].ps[2] = ab.0;
-        
+
         out_tris[1].uvs[0] = in_uvs[1];
         out_tris[1].uvs[1] = out_tris[0].uvs[2];
         out_tris[1].uvs[2] = [
-            tab*(out_uvs[0][0]-in_uvs[0][0])+in_uvs[0][0], 
-            tab*(out_uvs[0][1]-in_uvs[0][1])+in_uvs[0][1], 
-            tab*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2], 
+            tab*(out_uvs[0][0]-in_uvs[1][0])+in_uvs[1][0], 
+            tab*(out_uvs[0][1]-in_uvs[1][1])+in_uvs[1][1], 
+            tab*(out_uvs[0][2]-in_uvs[1][2])+in_uvs[1][2],
         ];
-            
+
         out_tris[1].ns[0] = in_ns[1];
         out_tris[1].ns[1] = out_tris[0].ns[2];
-        out_tris[0].ns[2] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
-        
+        out_tris[1].ns[2] = out_ns[0].subtract(in_ns[1]).scale_c(tab).add(in_ns[1]);
+
         return 2;
     }
     return 0;
@@ -293,6 +287,19 @@ fn main() {
         window_width : screen_width as f32,
         
     };
+    let mut tex1 : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
+
+    tex1.apply_fn(&|x, y, w, h, p, c|->Color{
+        return Color::WHITE;
+    });
+
+
+    let mut tex2 : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
+
+    tex2.apply_fn(&|x, y, w, h, p, c|->Color{
+        return Color::WHITE;
+    });
+
 
 
 
@@ -300,11 +307,11 @@ fn main() {
     let mut engine = Engine{
         camera : player_cam,
         objects : Vec::new(),
-        depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize]
+        depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(), "assets/white.png".to_string(), Color::WHITE).translate([0.0, 0.0, 5.0, 0.0]));
-    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(), "assets/white.png".to_string(), Color::RED).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
     let mut l_src = Light::new([10.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_ortho(10.0, 10.0, 0.1, 50.0));
@@ -482,8 +489,11 @@ fn main() {
              
         for i in 0..engine.objects.len(){            
             let obj = engine.objects[i].multiply_mat(cam_mat);
-            let otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
-            for j  in 0..obj.tris.len(){
+            let mut otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
+            //otex.apply_fn(&|x, y, w, h, p, c|->Color{
+            //    return Color::WHITE;
+            //});
+            for j in 0..obj.tris.len(){
 
                 let normal = obj.tris[j].normal();
                 let c = obj.tris[j].center();
@@ -509,15 +519,15 @@ fn main() {
                         t.uvs[0][1] *= t03;
                         t.uvs[1][1] *= t13;
                         t.uvs[2][1] *= t23;
-
+                        
                         t.uvs[0][0] *= t03;
                         t.uvs[1][0] *= t13;
                         t.uvs[2][0] *= t23;
-
+                        
                         t.uvs[0][2] = t03;
                         t.uvs[1][2] = t13;
                         t.uvs[2][2] = t23;
-
+                        
                         t.ps[0] = t.ps[0].scale_c(t03).add(off).scale(tr);    
                         t.ps[1] = t.ps[1].scale_c(t13).add(off).scale(tr);
                         t.ps[2] = t.ps[2].scale_c(t23).add(off).scale(tr);
@@ -531,21 +541,33 @@ fn main() {
                         //        }
                         //    }
                         //}
-
+                        
                         let mut etri = tri.multiply_mat(cam_pmat);
                         etri.ps[0] = etri.ps[0].scale_c(t03);
                         etri.ps[1] = etri.ps[1].scale_c(t13);
-                        etri.ps[2] = etri.ps[2].scale_c(t23);    
+                        etri.ps[2] = etri.ps[2].scale_c(t23);
+
+                        //let dp  = normal.dot_product([0.0, 0.0, -1.0, 1.0]);
+                        //let darkness = (255.0*dp) as u8;
+                        //canvas.fill_triangle(
+                        //    o,     
+                        //    g,
+                        //    h,
+                        //    Color::from((darkness, darkness, darkness))
+                        //);
+                        
+                        
                         canvas.textured_triangle(
                             t.ps,
-                            tri.uvs,
+                            t.uvs,
                             otex.without_lock().unwrap(),
                             otex.pitch() as usize,
                             otex.width() as f32,
                             otex.height() as f32,
                             &mut engine,
                             etri,
-                            &mut l_src
+                            &mut l_src,
+                            t.col
                         );
 
                         //canvas.draw_triangle(
@@ -588,8 +610,5 @@ fn main() {
             Color::WHITE
         );
         canvas.present();
-        for i in 0..screen_width*screen_height{
-            engine.depth_buffer[i as usize] = 0.0;
-        }
     }
 }

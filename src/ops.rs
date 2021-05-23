@@ -1,5 +1,5 @@
 use crate::{Engine};
-
+use sdl2::pixels::Color;
 pub trait Vec3{
     fn scale(&self, scalar : [f32;4])->Self;
     fn scale_c(&self, scalar : f32)->Self;
@@ -65,27 +65,29 @@ impl Vec3 for [f32;4]{
 pub struct Tri3d{
     pub ps : [[f32;4];3], 
     pub uvs : [[f32;3];3], 
-    pub ns : [[f32;4];3]
+    pub ns : [[f32;4];3],
+    pub col : Color
 }
 impl Tri3d{
-    pub fn new(ps:[[f32;4];3], uvs:[[f32;3];3], ns:[[f32;4];3])->Self{
-        return Self{ps, uvs, ns};
+    pub fn new(ps:[[f32;4];3], uvs:[[f32;3];3], ns:[[f32;4];3], col:Color)->Self{
+        return Self{ps, uvs, ns, col};
     }
     pub fn empty()->Self{
         return Tri3d{
             ps:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]],
             uvs:[[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]],
-            ns:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]]
+            ns:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]],
+            col:Color::WHITE
         }
     }
     pub fn normal(&self)->[f32;4]{
         return self.ps[2].subtract(self.ps[0]).cross_product(self.ps[1].subtract(self.ps[0])).normalize();//sheeeesh
     }
     pub fn translate(&self, t : [f32;4])->Self{
-        return Self::new([self.ps[0].add(t), self.ps[1].add(t), self.ps[2].add(t)], self.uvs, self.ns);
+        return Self::new([self.ps[0].add(t), self.ps[1].add(t), self.ps[2].add(t)], self.uvs, self.ns, self.col);
     }
     pub fn scale(&self, t : [f32;4])->Self{
-        return Self::new([self.ps[0].scale(t), self.ps[1].scale(t), self.ps[2].scale(t)], self.uvs, self.ns);
+        return Self::new([self.ps[0].scale(t), self.ps[1].scale(t), self.ps[2].scale(t)], self.uvs, self.ns, self.col);
     }
     pub fn center(&self)->[f32;4]{
         return self.ps[0].add(self.ps[1]).add(self.ps[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
@@ -103,6 +105,7 @@ impl Tri3d{
                 self.ns[1].multiply_mat(m),
                 self.ns[2].multiply_mat(m)
             ],
+            self.col
         );
     }
     pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4], center : [f32;4])->Self{
