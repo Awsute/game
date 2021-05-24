@@ -448,7 +448,35 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
     }
     return 0;
 }
-   
+//VERY SLOW AND SHOULD ONLY BE USED ONCE PER OBJECT
+pub fn estimate_normals(mesh:&mut Mesh){
+    
+    for i in 0..mesh.tris.len(){
+        let tri = mesh.tris[i];
+        for j in 0..3{
+            let mut norm = tri.normal();
+            let point = tri.ps[j];
+            for i1 in 0..mesh.tris.len(){
+                if i1 != i{
+                    let tri1 = mesh.tris[i1];
+                    let mut c = false;
+                    for j1 in 0..3{
+                        let point1 = tri1.ps[j1];
+                        if point[0] == point1[0] && point[1] == point1[1] && point[2] == point1[2]{
+                            
+                            c = true;
+                        }
+                    }
+                    if c{
+                        norm = norm.add(tri1.normal());
+                    }
+                }
+                
+            }
+            mesh.tris[i].ns[j] = norm.normalize();
+        }
+    }
+}
 pub const POISSON_DISK : [[f32;2];16] = [
     [-0.94201624, -0.39906216 ], 
     [0.94558609, -0.76890725 ], 

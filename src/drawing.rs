@@ -223,10 +223,10 @@ impl DrawTri for WindowCanvas{
                                 //col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
                                 
                                 let col = if ind < buffer.len()-2{
-                                    let diff_cos = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
+                                    let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
                                     let specr = (r.powi(5)*255.0) as u8;
                                     let spec_r = Color::RGB(specr, specr, specr);
-                                    let modif = spec_r.avg(diff_cos);
+                                    let modif = spec_r.avg(diff);
 
                                     Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(
                                         modif.blend(Color::RGB(shadow_c, shadow_c, shadow_c)).blend(light.col).avg(ambient)
