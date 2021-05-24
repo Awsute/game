@@ -94,7 +94,7 @@ impl Mesh{
         return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
 
-    pub fn load_obj_file(file_path:String, tex:String, col:Color)->Self{
+    pub fn load_obj_file(file_path:String, tex:String, col:Color, rfl:f32)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
         let mut ts : Vec<Tri3d> = Vec::new();
@@ -139,7 +139,8 @@ impl Mesh{
                                     [0.0, 0.0, 0.0, 1.0],
                                     [0.0, 0.0, 0.0, 1.0]
                                 ],
-                                col
+                                col,
+                                rfl
                             )
                         );
 
@@ -161,7 +162,8 @@ impl Mesh{
                                     [0.0, 0.0, 0.0, 1.0],
                                     [0.0, 0.0, 0.0, 1.0]
                                 ],
-                                col
+                                col,
+                                rfl
                             )
                         );
                     } else if p1.len() == 3{
@@ -182,7 +184,8 @@ impl Mesh{
                                     t_n[p2[2].parse::<usize>().unwrap()-1],
                                     t_n[p3[2].parse::<usize>().unwrap()-1]
                                 ],
-                                col
+                                col,
+                                rfl
                             )
                         );
                     }

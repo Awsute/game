@@ -11,7 +11,7 @@ pub struct Light{
     pub proj_mat : [[f32;4];4],
     pub buf : Vec<f32>,
 }
-pub const SHADOW_RESOLUTION : (usize, usize) = (512, 512);
+pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
 
 impl Light{
     pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4])->Self{

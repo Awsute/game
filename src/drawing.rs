@@ -2,6 +2,7 @@ extern crate sdl2;
 use sdl2::{render::{WindowCanvas}, pixels::{Color}};
 use std::mem::swap;
 use crate::world::{Engine, look_at, point_at};
+use crate::ops::{clamp};
 use crate::{Vec3, Tri3d};
 use sdl2::gfx::primitives::DrawRenderer;
 use crate::ColFuncs;
@@ -208,12 +209,27 @@ impl DrawTri for WindowCanvas{
                                 let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
                                 let norm = ls.scale_c(1.0-t).add(le.scale_c(t));
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
-                                let dp = norm.dot_product(light.dir.normalize().negative());
-                                let c = (dp*255.0) as u8;
-                                let g = (light.is_lit(point, norm)*255.0) as u8;
+                                let dp = norm.dot_product(light.dir.negative().normalize());
+                                let cos_theta = clamp(dp, 0.0, 1.0);
+
+                                let c_cos_theta = (cos_theta*255.0) as u8;
+
+                                let c = (dp.powi(5)*255.0) as u8;
+                                let r = norm.scale_c(2.0*(dp)).subtract(light.dir.negative()).normalize().dot_product(engine.camera.dir.negative());
+                                let r = clamp(r, 0.0, 1.0)*tri_info.rfl;
+                                let g = light.is_lit(point, norm);
+
+                                let shadow_c = (g*255.0) as u8;
+                                //col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
+                                
                                 let col = if ind < buffer.len()-2{
-                                    Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
-                                        Color::from((c, c, c)).blend(light.col).blend(Color::from((g, g, g))).avg(ambient)
+                                    let diff_cos = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
+                                    let specr = (r.powi(5)*255.0) as u8;
+                                    let spec_r = Color::RGB(specr, specr, specr);
+                                    let modif = spec_r.avg(diff_cos);
+
+                                    Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(
+                                        modif.blend(Color::RGB(shadow_c, shadow_c, shadow_c)).blend(light.col).avg(ambient)
                                     )
                                 } else {
                                     Color::BLACK
