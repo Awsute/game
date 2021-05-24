@@ -210,7 +210,7 @@ impl DrawTri for WindowCanvas{
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
                                 let dp = norm.dot_product(light.dir.normalize().negative());
                                 let c = (dp*255.0) as u8;
-                                let g = (light.is_lit(point)*255.0) as u8;
+                                let g = (light.is_lit(point, norm)*255.0) as u8;
                                 let col = if ind < buffer.len()-2{
                                     Color::from((buffer[ind], buffer[ind+1], buffer[ind+2])).blend(
                                         Color::from((c, c, c)).blend(light.col).blend(Color::from((g, g, g))).avg(ambient)

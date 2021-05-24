@@ -24,7 +24,7 @@ use sdl2::gfx::framerate::FPSManager;
 use sdl2::gfx::primitives::DrawRenderer;
 
 mod world;
-use world::{Engine, Mesh, Camera};
+use world::{Engine, Mesh, Camera, vec_intersect_plane, clip_tri};
 mod ops;
 use ops::{Tri3d, Vec3};
 mod drawing;
@@ -83,154 +83,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
 }
 //hi
 
-fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], line_e : [f32;4])->([f32;4], f32){
-    let plane_n = plane_n.normalize();
-    let plane_d = -plane_p.dot_product(plane_n);
-    let ad = line_s.dot_product(plane_n);
-    let bd = line_e.dot_product(plane_n);
-    let t = (-plane_d-ad)/(bd-ad);
-    return (line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0])), t);
-}
-
-fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mut [Tri3d;2]) -> usize{
-    let plane_n = plane_n.normalize();
-
-    let dist = |p : [f32;4]|->f32{
-        return p.dot_product(plane_n)-plane_n.dot_product(plane_p)
-    };
-    let mut in_points = Vec::new();
-    let mut out_points = Vec::new();
-
-    let mut in_uvs = Vec::new();
-    let mut out_uvs = Vec::new();
-    
-    let mut in_ns = Vec::new();
-    let mut out_ns = Vec::new();
-
-    let d0 = dist(in_tri.ps[0]);
-    let d1 = dist(in_tri.ps[1]);
-    let d2 = dist(in_tri.ps[2]);
-
-    if d0 >= 0.0{
-        in_points.push(in_tri.ps[0]);
-        in_uvs.push(in_tri.uvs[0]);
-        in_ns.push(in_tri.ns[0]);
-    } else {
-        out_points.push(in_tri.ps[0]);
-        out_uvs.push(in_tri.uvs[0]);
-        out_ns.push(in_tri.ns[0]);
-    }
-
-    if d1 >= 0.0{
-        in_points.push(in_tri.ps[1]);
-        in_uvs.push(in_tri.uvs[1]);
-        in_ns.push(in_tri.ns[1]);
-    } else {
-        out_points.push(in_tri.ps[1]);
-        out_uvs.push(in_tri.uvs[1]);
-        out_ns.push(in_tri.ns[1]);
-    }
-    
-    if d2 >= 0.0{
-        in_points.push(in_tri.ps[2]);
-        in_uvs.push(in_tri.uvs[2]);
-        in_ns.push(in_tri.ns[2]);
-    } else {
-        out_points.push(in_tri.ps[2]);
-        out_uvs.push(in_tri.uvs[2]);
-        out_ns.push(in_tri.ns[2]);
-    }
-
-    if in_points.len() == 3{
-        out_tris[0] = in_tri;
-        return 1;
-    } else if in_points.len() == 0 {
-        return 0;
-    } else if in_points.len() == 1{
-        out_tris[0].col = in_tri.col;
-        let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
-        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
-        out_tris[0].ps[0] = in_points[0];
-        out_tris[0].ps[1] = ab.0;
-        out_tris[0].ps[2] = ac.0; 
-
-        
-
-        let tab = ab.1;
-        
-        let tac = ac.1;
-
-        out_tris[0].uvs[0] = in_uvs[0];
-        out_tris[0].uvs[1] = [
-            tab*(out_uvs[0][0]-in_uvs[0][0])+in_uvs[0][0], 
-            tab*(out_uvs[0][1]-in_uvs[0][1])+in_uvs[0][1], 
-            tab*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2], 
-        ];
-        out_tris[0].uvs[2] = [
-            tac*(out_uvs[1][0]-in_uvs[0][0])+in_uvs[0][0], 
-            tac*(out_uvs[1][1]-in_uvs[0][1])+in_uvs[0][1], 
-            tac*(out_uvs[1][2]-in_uvs[0][2])+in_uvs[0][2], 
-        ];
-
-        out_tris[0].ns[0] = in_ns[0];
-        out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
-        out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
-        
-        return 1;
-    } else if in_points.len() == 2{
-        out_tris[0].col = in_tri.col;
-        out_tris[1].col = in_tri.col;
-
-
-        let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
-        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
-        let tac = ac.1;
-
-        out_tris[0].ps[0] = in_points[0];
-        out_tris[0].ps[1] = in_points[1];
-        out_tris[0].ps[2] = ac.0;
-
-
-        out_tris[0].uvs[0] = in_uvs[0];
-        out_tris[0].uvs[1] = in_uvs[1];
-        out_tris[0].uvs[2] = [
-            tac*(out_uvs[0][0]-in_uvs[0][0])+in_uvs[0][0], 
-            tac*(out_uvs[0][1]-in_uvs[0][1])+in_uvs[0][1], 
-            tac*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2],
-        ];
-
-        out_tris[0].ns[0] = in_ns[0];
-        out_tris[0].ns[1] = in_ns[1];
-        out_tris[0].ns[2] = out_ns[0].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
-
-        
-
-        
-
-        
-        let tab = ab.1;
-        
-        out_tris[1].ps[0] = in_points[1];
-        out_tris[1].ps[1] = out_tris[0].ps[2];
-        out_tris[1].ps[2] = ab.0;
-
-        out_tris[1].uvs[0] = in_uvs[1];
-        out_tris[1].uvs[1] = out_tris[0].uvs[2];
-        out_tris[1].uvs[2] = [
-            tab*(out_uvs[0][0]-in_uvs[1][0])+in_uvs[1][0], 
-            tab*(out_uvs[0][1]-in_uvs[1][1])+in_uvs[1][1], 
-            tab*(out_uvs[0][2]-in_uvs[1][2])+in_uvs[1][2],
-        ];
-
-        out_tris[1].ns[0] = in_ns[1];
-        out_tris[1].ns[1] = out_tris[0].ns[2];
-        out_tris[1].ns[2] = out_ns[0].subtract(in_ns[1]).scale_c(tab).add(in_ns[1]);
-
-        return 2;
-    }
-    return 0;
-}
-    
+ 
 fn find_sdl_gl_driver() -> Option<u32> {
     for (index, item) in sdl2::render::drivers().enumerate() {
         if item.name == "opengl" {
@@ -251,7 +104,7 @@ fn main() {
     let _audio_subsystem = sdl_context.audio().unwrap();
     let _sdl_image_context = image::init(image::InitFlag::all());
 
-    let mut window = video_subsystem.window("game", 750, 750)
+    let mut window = video_subsystem.window("game", 800, 750)
         .opengl()
         //.fullscreen_desktop()
         .build()
@@ -287,18 +140,6 @@ fn main() {
         window_width : screen_width as f32,
         
     };
-    let mut tex1 : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
-
-    tex1.apply_fn(&|x, y, w, h, p, c|->Color{
-        return Color::WHITE;
-    });
-
-
-    let mut tex2 : Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
-
-    tex2.apply_fn(&|x, y, w, h, p, c|->Color{
-        return Color::WHITE;
-    });
 
 
 
@@ -310,13 +151,12 @@ fn main() {
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
     };
 
-    engine.objects.push(Mesh::load_obj_file("assets/pigeon.obj".to_string(), "assets/white.png".to_string(), Color::GRAY).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE).scale([1.0, 10.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/pigeon.obj".to_string(), "assets/white.png".to_string(), Color::BLUE).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE).scale([100.0, 1.0, 100.0, 1.0]).translate([-5.0, -5.0, 0.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::WHITE).translate([-5.0, 0.0, 0.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([10.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0], world::matrix3d_ortho(10.0, 10.0, 0.1, 50.0));
-    engine.camera.pos = l_src.pos;
-    engine.camera.dir = l_src.dir;
+    let mut l_src = Light::new([5.0, 1.0, 0.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(10.0, 10.0, 0.0, 50.0));
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
@@ -449,10 +289,9 @@ fn main() {
         
         //in view space
        
-        let r = engine.camera.fov.to_radians()*0.5;
+        let r = engine.camera.fov.to_radians()*(engine.camera.window_height/engine.camera.window_width/2.0);
         let rsin = r.sin();
         let rcos = r.cos();
-        let c_dist = engine.camera.clip_distance;
 
         let w_clip = [
             [[0.0, 0.0, engine.camera.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
@@ -499,9 +338,9 @@ fn main() {
                 if normal.dot_product(c) >= 0.0 {
                     let v = obj.tris[j];
                     let mut clipped = vec![v];
+                    let trs = &mut [Tri3d::empty(), Tri3d::empty()];
                     for plane in &w_clip{
-                        if clipped.len() > 0{
-                            let trs = &mut [Tri3d::empty(), Tri3d::empty()];
+                        for n in 0..clipped.len(){
                             let t_clipped = clip_tri(plane[0], plane[1], clipped[0], trs);
                             clipped.remove(0);
                             for b in 0..t_clipped{

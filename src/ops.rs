@@ -169,5 +169,26 @@ impl operations4x4 for [[f32;4];4]{
         ]
     }
 }
-
-
+pub fn max(n1:f32, n2:f32)->f32{
+    return if n1>n2{
+        n1
+    } else{
+        n2
+    }
+}
+pub fn min(n1:f32, n2:f32)->f32{
+    return if n1<n2{
+        n1
+    } else{
+        n2
+    }
+}
+pub fn clamp(val:f32, min_val:f32, max_val:f32)->f32{
+    return if val > max_val{
+        max_val
+    } else if val < min_val{
+        min_val
+    } else {
+        val
+    }
+}

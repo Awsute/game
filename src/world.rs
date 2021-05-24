@@ -37,8 +37,8 @@ pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f3
 }
 pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
     return [
-        [1.0/(r), 0.0, 0.0, 0.0],
-        [0.0, 1.0/(t), 0.0, 0.0],
+        [1.0/r, 0.0, 0.0, 0.0],
+        [0.0, 1.0/t, 0.0, 0.0],
         [0.0, 0.0, -2.0/(f-n), -(f+n)/(f-n)],
         [0.0, 0.0, 0.0, 1.0]
     ]
@@ -298,10 +298,170 @@ fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
 pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
     return quick_inv(point_at(pos, target, up));
 }
+pub fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], line_e : [f32;4])->([f32;4], f32){
+    let plane_n = plane_n.normalize();
+    let plane_d = -plane_p.dot_product(plane_n);
+    let ad = line_s.dot_product(plane_n);
+    let bd = line_e.dot_product(plane_n);
+    let t = (-plane_d-ad)/(bd-ad);
+    return (line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0])), t);
+}
 
-pub const POISSON_DISK : [[f32;2];4] = [
-    [-0.94201624, -0.39906216],
-    [0.94558609, -0.76890725],
-    [-0.094184101, -0.92938870],
-    [0.34495938, 0.29387760]
+pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mut [Tri3d;2]) -> usize{
+    let plane_n = plane_n.normalize();
+
+    let dist = |p : [f32;4]|->f32{
+        return p.dot_product(plane_n)-plane_n.dot_product(plane_p)
+    };
+    let mut in_points = Vec::new();
+    let mut out_points = Vec::new();
+
+    let mut in_uvs = Vec::new();
+    let mut out_uvs = Vec::new();
+    
+    let mut in_ns = Vec::new();
+    let mut out_ns = Vec::new();
+
+    let d0 = dist(in_tri.ps[0]);
+    let d1 = dist(in_tri.ps[1]);
+    let d2 = dist(in_tri.ps[2]);
+
+    if d0 >= 0.0{
+        in_points.push(in_tri.ps[0]);
+        in_uvs.push(in_tri.uvs[0]);
+        in_ns.push(in_tri.ns[0]);
+    } else {
+        out_points.push(in_tri.ps[0]);
+        out_uvs.push(in_tri.uvs[0]);
+        out_ns.push(in_tri.ns[0]);
+    }
+
+    if d1 >= 0.0{
+        in_points.push(in_tri.ps[1]);
+        in_uvs.push(in_tri.uvs[1]);
+        in_ns.push(in_tri.ns[1]);
+    } else {
+        out_points.push(in_tri.ps[1]);
+        out_uvs.push(in_tri.uvs[1]);
+        out_ns.push(in_tri.ns[1]);
+    }
+    
+    if d2 >= 0.0{
+        in_points.push(in_tri.ps[2]);
+        in_uvs.push(in_tri.uvs[2]);
+        in_ns.push(in_tri.ns[2]);
+    } else {
+        out_points.push(in_tri.ps[2]);
+        out_uvs.push(in_tri.uvs[2]);
+        out_ns.push(in_tri.ns[2]);
+    }
+
+    if in_points.len() == 3{
+        out_tris[0] = in_tri;
+        return 1;
+    } else if in_points.len() == 0 {
+        return 0;
+    } else if in_points.len() == 1{
+        out_tris[0].col = in_tri.col;
+        let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
+        out_tris[0].ps[0] = in_points[0];
+        out_tris[0].ps[1] = ab.0;
+        out_tris[0].ps[2] = ac.0; 
+
+        
+
+        let tab = ab.1;
+        
+        let tac = ac.1;
+
+        out_tris[0].uvs[0] = in_uvs[0];
+        out_tris[0].uvs[1] = [
+            tab*(out_uvs[0][0]-in_uvs[0][0])+in_uvs[0][0], 
+            tab*(out_uvs[0][1]-in_uvs[0][1])+in_uvs[0][1], 
+            tab*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2], 
+        ];
+        out_tris[0].uvs[2] = [
+            tac*(out_uvs[1][0]-in_uvs[0][0])+in_uvs[0][0], 
+            tac*(out_uvs[1][1]-in_uvs[0][1])+in_uvs[0][1], 
+            tac*(out_uvs[1][2]-in_uvs[0][2])+in_uvs[0][2], 
+        ];
+
+        out_tris[0].ns[0] = in_ns[0];
+        out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
+        out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
+        
+        return 1;
+    } else if in_points.len() == 2{
+        out_tris[0].col = in_tri.col;
+        out_tris[1].col = in_tri.col;
+
+
+        let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
+        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+        let tac = ac.1;
+
+        out_tris[0].ps[0] = in_points[0];
+        out_tris[0].ps[1] = in_points[1];
+        out_tris[0].ps[2] = ac.0;
+
+
+        out_tris[0].uvs[0] = in_uvs[0];
+        out_tris[0].uvs[1] = in_uvs[1];
+        out_tris[0].uvs[2] = [
+            tac*(out_uvs[0][0]-in_uvs[0][0])+in_uvs[0][0], 
+            tac*(out_uvs[0][1]-in_uvs[0][1])+in_uvs[0][1], 
+            tac*(out_uvs[0][2]-in_uvs[0][2])+in_uvs[0][2],
+        ];
+
+        out_tris[0].ns[0] = in_ns[0];
+        out_tris[0].ns[1] = in_ns[1];
+        out_tris[0].ns[2] = out_ns[0].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
+
+        
+
+        
+
+        
+        let tab = ab.1;
+        
+        out_tris[1].ps[0] = in_points[1];
+        out_tris[1].ps[1] = out_tris[0].ps[2];
+        out_tris[1].ps[2] = ab.0;
+
+        out_tris[1].uvs[0] = in_uvs[1];
+        out_tris[1].uvs[1] = out_tris[0].uvs[2];
+        out_tris[1].uvs[2] = [
+            tab*(out_uvs[0][0]-in_uvs[1][0])+in_uvs[1][0], 
+            tab*(out_uvs[0][1]-in_uvs[1][1])+in_uvs[1][1], 
+            tab*(out_uvs[0][2]-in_uvs[1][2])+in_uvs[1][2],
+        ];
+
+        out_tris[1].ns[0] = in_ns[1];
+        out_tris[1].ns[1] = out_tris[0].ns[2];
+        out_tris[1].ns[2] = out_ns[0].subtract(in_ns[1]).scale_c(tab).add(in_ns[1]);
+
+        return 2;
+    }
+    return 0;
+}
+   
+pub const POISSON_DISK : [[f32;2];16] = [
+    [-0.94201624, -0.39906216 ], 
+    [0.94558609, -0.76890725 ], 
+    [-0.094184101, -0.92938870 ], 
+    [0.34495938, 0.29387760 ], 
+    [-0.91588581, 0.45771432 ], 
+    [-0.81544232, -0.87912464 ], 
+    [-0.38277543, 0.27676845 ], 
+    [0.97484398, 0.75648379 ], 
+    [0.44323325, -0.97511554 ], 
+    [0.53742981, -0.47373420 ], 
+    [-0.26496911, -0.41893023 ], 
+    [0.79197514, 0.19090188 ], 
+    [-0.24188840, 0.99706507 ], 
+    [-0.81409955, 0.91437590 ], 
+    [0.19984126, 0.78641367 ], 
+    [0.14383161, -0.14100790 ] 
 ];
+
