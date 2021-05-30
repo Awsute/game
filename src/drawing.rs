@@ -11,7 +11,7 @@ use crate::light::Light;
 pub trait DrawTri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
     fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light, ambient : Color);
+    fn textured_triangle(&mut self, p : [Vec3;3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light, ambient : Color);
 }
 impl DrawTri for WindowCanvas{
     #[inline]
@@ -32,7 +32,7 @@ impl DrawTri for WindowCanvas{
         
     }
     #[inline]
-    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light, ambient : Color){
+    fn textured_triangle(&mut self, p : [Vec3;3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, light : &mut Light, ambient : Color){
         let s = (engine.camera.window_width, engine.camera.window_height);
         let mut c1 = p[0];
         let mut c2 = p[1];
@@ -76,14 +76,14 @@ impl DrawTri for WindowCanvas{
         let mut du2_step = 0.0; let mut dv2_step = 0.0; let mut dw2_step = 0.0;
         let mut du3_step = 0.0; let mut dv3_step = 0.0; let mut dw3_step = 0.0;
         
-        let mut dav_step = [0.0, 0.0, 0.0, 0.0]; 
-        let mut dbv_step = [0.0, 0.0, 0.0, 0.0]; 
-        let mut dcv_step = [0.0, 0.0, 0.0, 0.0];
+        let mut dav_step = Vec3::empty(); 
+        let mut dbv_step = Vec3::empty(); 
+        let mut dcv_step = Vec3::empty();
         
         
-        let mut la_step = [0.0, 0.0, 0.0, 1.0];
-        let mut lb_step = [0.0, 0.0, 0.0, 1.0];
-        let mut lc_step = [0.0, 0.0, 0.0, 1.0];
+        let mut la_step = Vec3::empty();
+        let mut lb_step = Vec3::empty();
+        let mut lc_step = Vec3::empty();
 
         
         
@@ -98,8 +98,8 @@ impl DrawTri for WindowCanvas{
             dv1_step = (i2[1] - i1[1])*da;
             dw1_step = (i2[2] - i1[2])*da;
             
-            dav_step = v2.subtract(v1).scale_c(da);
-            la_step = l2.subtract(l1).scale_c(da);
+            dav_step = (v2-v1)*da;
+            la_step = (l2-l1)*da;
         }
         
         if dyb != 0.0{ //point a to point c
@@ -109,8 +109,8 @@ impl DrawTri for WindowCanvas{
             dv2_step = (i3[1] - i1[1])*db;
             dw2_step = (i3[2] - i1[2])*db;
             
-            dbv_step = v3.subtract(v1).scale_c(db);
-            lb_step = l3.subtract(l1).scale_c(db);
+            dbv_step = (v3-v1)*db;
+            lb_step = (l3-l1)*db;
 
         };
         
@@ -122,8 +122,8 @@ impl DrawTri for WindowCanvas{
             dv3_step = (i3[1] - i2[1])*dc;
             dw3_step = (i3[2] - i2[2])*dc;
             
-            dcv_step = v3.subtract(v2).scale_c(dc);
-            lc_step = l3.subtract(l2).scale_c(dc);
+            dcv_step = (v3-v2)*dc;
+            lc_step = (l3-l2)*dc;
 
         }
 
@@ -140,14 +140,14 @@ impl DrawTri for WindowCanvas{
                     let mut tex_ev : f32;
                     let mut tex_ew : f32;
                     
-                    let mut point_s : [f32;4];
-                    let mut point_e : [f32;4];
+                    let mut point_s : Vec3;
+                    let mut point_e : Vec3;
 
                     let mut ax : i32;
                     let mut bx : i32;
 
-                    let mut ls : [f32;4];
-                    let mut le : [f32;4];
+                    let mut ls : Vec3;
+                    let mut le : Vec3;
                     let ys1 = y as f32-c1[1];
                     let ys2 = y as f32-c2[1];
                     if y < c2[1] as i32+1 {
@@ -162,11 +162,11 @@ impl DrawTri for WindowCanvas{
                         tex_ev = i1[1] + (ys1) * dv2_step;
                         tex_ew = i1[2] + (ys1) * dw2_step;
 
-                        ls = l1.add(la_step.scale_c(ys1));
-                        le = l1.add(lb_step.scale_c(ys1));
+                        ls = l1+la_step*ys1;
+                        le = l1+lb_step*ys1;
 
-                        point_s = v1.add(dav_step.scale_c(ys1));
-                        point_e = v1.add(dbv_step.scale_c(ys1));
+                        point_s = v1+dav_step*ys1;
+                        point_e = v1+dbv_step*ys1;
 
 
                     } else {
@@ -182,11 +182,11 @@ impl DrawTri for WindowCanvas{
                         tex_ew = i1[2] + (ys1) * dw2_step;
                         
 
-                        ls = l2.add(lc_step.scale_c(ys2));
-                        le = l1.add(lb_step.scale_c(ys1));
+                        ls = l2+lc_step*ys2;
+                        le = l1+lb_step*ys1;
 
-                        point_s = v2.add(dcv_step.scale_c(ys2));
-                        point_e = v1.add(dbv_step.scale_c(ys1));
+                        point_s = v2+dcv_step*ys2;
+                        point_e = v1+dbv_step*ys1;
 
                     }
                     if ax > bx{
@@ -207,15 +207,15 @@ impl DrawTri for WindowCanvas{
 
                             if tex_w >= engine.depth_buffer[dbi]{
                                 let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
-                                let norm = ls.scale_c(1.0-t).add(le.scale_c(t));
-                                let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
-                                let dp = norm.dot_product(light.dir.negative().normalize());
+                                let norm = ls*(1.0-t)+(le*t);
+                                let point = (point_s*(1.0-t)+(point_e*t))*(1.0/tex_w);
+                                let dp = norm.dot_product(-light.dir.normalize());
                                 let cos_theta = clamp(dp, 0.0, 1.0);
 
                                 let c_cos_theta = (cos_theta*255.0) as u8;
 
                                 let c = (dp.powi(5)*255.0) as u8;
-                                let r = norm.scale_c(2.0*(dp)).subtract(light.dir.negative()).normalize().dot_product(engine.camera.dir.negative());
+                                let r = (norm*(2.0*(dp))-(-light.dir)).normalize().dot_product(-engine.camera.dir);
                                 let r = clamp(r, 0.0, 1.0)*tri_info.rfl;
                                 let g = light.is_lit(point, norm);
 

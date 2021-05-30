@@ -5,16 +5,16 @@ use crate::ops::{Tri3d, Vec3, operations4x4, clamp};
 use std::mem::swap;
 
 pub struct Light{
-    pub pos : [f32;4],
+    pub pos : Vec3,
     pub col : Color,
-    pub dir : [f32;4],
+    pub dir : Vec3,
     pub proj_mat : [[f32;4];4],
     pub buf : Vec<f32>,
 }
 pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
 
 impl Light{
-    pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4])->Self{
+    pub fn new(pos:Vec3, col:Color, dir:Vec3, proj_mat:[[f32;4];4])->Self{
         return Light{pos, col, dir, proj_mat : proj_mat, buf:vec![1.0; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1]};
     }
     #[inline]
@@ -22,7 +22,7 @@ impl Light{
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
 
-        let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
+        let t = tri.multiply_mat(look_at(self.pos, self.pos+self.dir, Vec3{x:0.0, y:1.0, z:0.0, w:1.0})).multiply_mat(self.proj_mat);
         if 
             (t.ps[0][0] < -1.0 || t.ps[0][0] > 1.0 || t.ps[0][1] < -1.0 || t.ps[0][1] > 1.0) &&
             (t.ps[1][0] < -1.0 || t.ps[1][0] > 1.0 || t.ps[1][1] < -1.0 || t.ps[1][1] > 1.0) &&
@@ -120,15 +120,15 @@ impl Light{
         }
     }
     #[inline]
-    pub fn is_lit(&mut self, point:[f32;4], norm : [f32;4])->f32{
+    pub fn is_lit(&mut self, point : Vec3, norm : Vec3)->f32{
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
         
-        let dp = norm.dot_product(self.dir.negative());
+        let dp = norm.dot_product(-self.dir);
         let cos_theta = clamp(dp, 0.0, 1.0);
         let b = clamp(0.008*(cos_theta.acos().tan()), 0.0, 0.05);
         //let b = 0.01;0
-        let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
+        let t = point*look_at(self.pos, self.pos+self.dir, Vec3{x:0.0, y:1.0, z:0.0, w:1.0})*self.proj_mat;
         if t[0] > 1.0 || t[0] < -1.0 || t[1] > 1.0 || t[1] < -1.0{
             return 0.0
         }

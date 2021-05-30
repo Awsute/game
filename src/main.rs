@@ -93,11 +93,11 @@ fn find_sdl_gl_driver() -> Option<u32> {
     None
 }
 fn main() {
-    let world_up = [0.0, 1.0, 0.0, 1.0];
+    let world_up = Vec3{x:0.0, y:1.0, z:0.0, w:1.0};
     let mut fps_manager = FPSManager::new();
 
-    let list_id = [0.0, 0.0, 0.0, 0.0];
-    let list_id_sc = [1.0, 1.0, 1.0, 1.0];
+    let list_id = Vec3{x:0.0, y:0.0, z:0.0, w:0.0};
+    let list_id_sc = Vec3{x:1.0, y:1.0, z:1.0, w:1.0};
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -130,10 +130,10 @@ fn main() {
     let max_fps = 60_u32;
     let player_cam = Camera{
         fov : 90.0,
-        pos : [0.0, 0.0, 0.0, 1.0],
-        dir : [0.0, 0.0, 1.0, 1.0],
-        vel : [0.0, 0.0, 0.0, 0.0],
-        rot_vel : [0.0, 0.0, 0.0, 0.0],
+        pos : Vec3::empty(),
+        dir : Vec3::empty(),
+        vel : Vec3::empty(),
+        rot_vel : Vec3::empty(),
         clip_distance : 0.5,
         render_distance : 500.0,
         window_height : screen_height as f32,
@@ -154,11 +154,11 @@ fn main() {
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
         
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0).scale([1.0, 1.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0).scale(Vec3{x:1.0, y:1.0, z:10.0, w:1.0}).translate(Vec3{x:-5.0, y:0.0, z:5.0, w:0.0}));
     crate::world::estimate_normals(&mut engine.objects[0]);
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([5.0, 1.0, 0.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(25.0, 25.0, 0.0, 50.0));
+    let mut l_src = Light::new(Vec3{x:5.0, y:1.0, z:0.0, w:1.0}, Color::WHITE, Vec3{x:-1.0, y:0.0, z:0.0, w:1.0}.normalize(), world::matrix3d_ortho(25.0, 25.0, 0.0, 50.0));
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
@@ -271,26 +271,26 @@ fn main() {
         
         
         //update camera
-        let rvel = engine.camera.rot_vel.scale_c(1.0/FPS);
-        engine.camera.dir = engine.camera.dir.multiply_mat(Engine::y_rot(rvel[1]));
+        let rvel = engine.camera.rot_vel*(1.0/FPS);
+        engine.camera.dir = engine.camera.dir*(Engine::y_rot(rvel[1]));
         
         let cam_fwd = engine.camera.dir.normalize();
-        let cam_up = world_up.subtract(engine.camera.dir.scale_c(world_up.dot_product(engine.camera.dir))).normalize();
+        let cam_up = world_up-(engine.camera.dir*(world_up.dot_product(engine.camera.dir))).normalize();
         let cam_right = cam_up.cross_product(engine.camera.dir).normalize();
         
-        let mvel = [
-            engine.camera.vel.dot_product(cam_right), 
-            engine.camera.vel.dot_product(cam_up),
-            engine.camera.vel.dot_product(cam_fwd),
-            1.0
-        ].scale_c(cspeed/FPS);
+        let mvel = Vec3{
+            x:engine.camera.vel.dot_product(cam_right), 
+            y:engine.camera.vel.dot_product(cam_up),
+            z:engine.camera.vel.dot_product(cam_fwd),
+            w:1.0
+        }*(cspeed/FPS);
 
 
-        engine.camera.pos = engine.camera.pos.add(mvel);
+        engine.camera.pos = engine.camera.pos+mvel;
         let ew = engine.camera.window_width/2.0; let eh = engine.camera.window_height/2.0;
         
-        let cam_pmat = world::point_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
-        let cam_mat = world::look_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
+        let cam_pmat = world::point_at(engine.camera.pos, engine.camera.pos+engine.camera.dir, Vec3{x:0.0, y:1.0, z:0.0, w:1.0});
+        let cam_mat = world::look_at(engine.camera.pos, engine.camera.pos+engine.camera.dir, Vec3{x:0.0, y:1.0, z:0.0, w:1.0});
         
         //in view space
        
@@ -299,20 +299,20 @@ fn main() {
         let rcos = r.cos();
 
         let w_clip = [
-            [[0.0, 0.0, engine.camera.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
-            [[0.0, 0.0, engine.camera.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [Vec3{x:0.0, y:0.0, z:engine.camera.render_distance, w:1.0}, Vec3{x:0.0, y:0.0, z:-1.0, w:1.0}],
+            [Vec3{x:0.0, y:0.0, z:engine.camera.clip_distance, w:1.0}, Vec3{x:0.0, y:0.0, z:1.0, w:1.0}],
                         
-            [[0.0, 0.0, 0.0, 1.0], [0.0, -rsin, rcos, 1.0]],
-            [[0.0, 0.0, 0.0, 1.0], [0.0, rsin, rcos, 1.0]],
+            [Vec3{x:0.0, y:0.0, z:0.0, w:1.0}, Vec3{x:0.0, y:-rsin, z:rcos, w:1.0}],
+            [Vec3{x:0.0, y:0.0, z:0.0, w:1.0}, Vec3{x:0.0, y:rsin, z:rcos, w:1.0}],
             
-            [[0.0, 0.0, 0.0, 1.0], [-rsin, 0.0, rcos, 1.0]],
-            [[0.0, 0.0, 0.0, 1.0], [rsin, 0.0, rcos, 1.0]],
+            [Vec3{x:0.0, y:0.0, z:0.0, w:1.0}, Vec3{x:-rsin, y:0.0, z:rcos, w:1.0}],
+            [Vec3{x:0.0, y:0.0, z:0.0, w:1.0}, Vec3{x:rsin, y:0.0, z:rcos, w:1.0}],
 
         ];
 
 
         
-        let tr = [ew, eh, 1.0, 1.0];
+        let tr = Vec3{x:ew, y:eh, z:1.0, w:1.0};
         
 
         //reset the buffers only when the camera or objects move
@@ -324,7 +324,7 @@ fn main() {
         }
 
         for i in 0..engine.objects.len(){
-            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
+            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel*(1.0/FPS), engine.objects[i].rot_vel*(1.0/FPS), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
                 l_src.edit_shadow_buffer(engine.objects[i].tris[j]);
             }
@@ -354,7 +354,7 @@ fn main() {
                         }
                     }
                     for tri in clipped{
-                        let off = [1.0, 1.0, 0.0, 0.0];
+                        let off = Vec3{x:1.0, y:1.0, z:0.0, w:0.0};
                         let mut t = tri.multiply_mat(mat3d);
                         let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[2][3];
                         t.uvs = tri.uvs;
@@ -371,9 +371,9 @@ fn main() {
                         t.uvs[1][2] = t13;
                         t.uvs[2][2] = t23;
                         
-                        t.ps[0] = t.ps[0].scale_c(t03).add(off).scale(tr);    
-                        t.ps[1] = t.ps[1].scale_c(t13).add(off).scale(tr);
-                        t.ps[2] = t.ps[2].scale_c(t23).add(off).scale(tr);
+                        t.ps[0] = (t.ps[0]*t03 + off)*tr;    
+                        t.ps[1] = (t.ps[1]*t13 + off)*tr;
+                        t.ps[2] = (t.ps[2]*t23 + off)*tr;
                         //for plane in &clip{
                         //    if v.len() > 0{
                         //        let cont = &mut [Tri3d::empty(), Tri3d::empty()];
@@ -386,9 +386,9 @@ fn main() {
                         //}
                         
                         let mut etri = tri.multiply_mat(cam_pmat);
-                        etri.ps[0] = etri.ps[0].scale_c(t03);
-                        etri.ps[1] = etri.ps[1].scale_c(t13);
-                        etri.ps[2] = etri.ps[2].scale_c(t23);
+                        etri.ps[0] = etri.ps[0]*t03;
+                        etri.ps[1] = etri.ps[1]*t13;
+                        etri.ps[2] = etri.ps[2]*t23;
 
                         //let dp  = normal.dot_product([0.0, 0.0, -1.0, 1.0]);
                         //let darkness = (255.0*dp) as u8;
