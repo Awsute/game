@@ -44,8 +44,6 @@ pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
     ]
 }
 impl Engine{
-
-
     pub fn x_rot(angle : f32)->[[f32;4];4]{
         return [
             [1.0, 0.0, 0.0, 0.0],

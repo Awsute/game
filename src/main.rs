@@ -151,17 +151,18 @@ fn main() {
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
     };
 
-    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 1.0, 1.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
         
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::RED, 0.0).translate([-5.0, 0.0, 5.0, 0.0]));
-    crate::world::estimate_normals(&mut engine.objects[0]);
+    //engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0).scale([1.0, 1.0, 10.0, 1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    //crate::world::estimate_normals(&mut engine.objects[0]);
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([5.0, 1.0, 0.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(10.0, 10.0, 0.0, 50.0));
+    let mut l_src = Light::new([5.0, 1.0, 0.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(25.0, 25.0, 0.0, 50.0));
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
-    let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
+    let mat3d = world::matrix3d_ortho(10.0, 10.0, 0.1, 100.0);
+    //world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
     let mut seconds_passed = 0.0;
     
     
@@ -283,6 +284,8 @@ fn main() {
             engine.camera.vel.dot_product(cam_fwd),
             1.0
         ].scale_c(cspeed/FPS);
+
+
         engine.camera.pos = engine.camera.pos.add(mvel);
         let ew = engine.camera.window_width/2.0; let eh = engine.camera.window_height/2.0;
         
@@ -353,7 +356,9 @@ fn main() {
                     for tri in clipped{
                         let off = [1.0, 1.0, 0.0, 0.0];
                         let mut t = tri.multiply_mat(mat3d);
-                        let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[2][3];
+                        let t03 = 1.0;//t.ps[0][3]; 
+                        let t13 = 1.0;//t.ps[1][3]; 
+                        let t23 = 1.0;//t.ps[2][3];
                         t.uvs = tri.uvs;
 
                         t.uvs[0][1] *= t03;
