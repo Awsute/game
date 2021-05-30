@@ -7,12 +7,13 @@ use sdl2::surface::{Surface, SurfaceRef, SurfaceContext};
 use crate::ops::operations4x4;
 use sdl2::pixels::Color;
 
+#[derive(Copy, Clone)]
 pub struct Camera{
     pub fov : f32,
-    pub pos : Vec3,
-    pub dir : Vec3,
-    pub vel : Vec3,
-    pub rot_vel : Vec3,
+    pub pos : [f32;4],
+    pub dir : [f32;4],
+    pub vel : [f32;4],
+    pub rot_vel : [f32;4],
     pub clip_distance : f32,
     pub render_distance : f32,
     pub window_height : f32,
@@ -43,6 +44,8 @@ pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
     ]
 }
 impl Engine{
+
+
     pub fn x_rot(angle : f32)->[[f32;4];4]{
         return [
             [1.0, 0.0, 0.0, 0.0],
@@ -71,32 +74,32 @@ impl Engine{
 }
 pub struct Mesh{
     pub tris : Vec<Tri3d>,
-    pub rot : Vec3,
-    pub vel : Vec3,
-    pub rot_vel : Vec3,
+    pub rot : [f32;4],
+    pub vel : [f32;4],
+    pub rot_vel : [f32;4],
     pub tex : String,
 }
 
 impl Mesh{
-    pub fn new(tris:Vec<Tri3d>, rot:Vec3, t_coords : Vec<[[f32;3];3]>, tex : String, col:Color)->Self{
-        return Mesh{tris, rot, vel : Vec3::empty(), rot_vel : Vec3::empty(), tex};
+    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, tex : String, col:Color)->Self{
+        return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0], tex};
     }
     #[inline]
-    pub fn center(&self)->Vec3{
-        let mut c = Vec3::empty();
+    pub fn center(&self)->[f32;4]{
+        let mut c = [0.0, 0.0, 0.0, 1.0];
         let n = self.tris.len() as f32;
         for tri in &self.tris{
-            c = c+tri.center();
+            c = c.add(tri.center());
         }
-        return c*(1.0/n)
+        return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
 
     pub fn load_obj_file(file_path:String, tex:String, col:Color, rfl:f32)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
         let mut ts : Vec<Tri3d> = Vec::new();
-        let mut t_n : Vec<Vec3> = Vec::new();
-        let mut points : Vec<Vec3> = Vec::new();
+        let mut t_n : Vec<[f32;4]> = Vec::new();
+        let mut points : Vec<[f32;4]> = Vec::new();
         let mut t_c : Vec<[f32;3]> = Vec::new();
         for line in reader.lines() {
             
@@ -105,12 +108,12 @@ impl Mesh{
             if vals.len() > 0{
                 if vals[0].to_string() == "v".to_string() {
                     points.push(
-                        Vec3{
-                            x:vals[1].parse::<f32>().unwrap(),
-                            y:vals[2].parse::<f32>().unwrap(),
-                            z:vals[3].parse::<f32>().unwrap(),
-                            w:1.0
-                        }
+                        [
+                            vals[1].parse::<f32>().unwrap(),
+                            vals[2].parse::<f32>().unwrap(),
+                            vals[3].parse::<f32>().unwrap(),
+                            1.0
+                        ]
                     );
                 } else if vals[0].to_string() == "f".to_string() {
                     let p1 : Vec<&str> = vals[1].split("/").collect();
@@ -132,9 +135,9 @@ impl Mesh{
                                     t_c[p3[1].parse::<usize>().unwrap()-1]
                                 ],
                                 [
-                                    Vec3::empty(),
-                                    Vec3::empty(),
-                                    Vec3::empty()
+                                    [0.0, 0.0, 0.0, 1.0],
+                                    [0.0, 0.0, 0.0, 1.0],
+                                    [0.0, 0.0, 0.0, 1.0]
                                 ],
                                 col,
                                 rfl
@@ -155,9 +158,9 @@ impl Mesh{
                                     [1.0, 1.0, 0.0]
                                 ],
                                 [
-                                    Vec3::empty(),
-                                    Vec3::empty(),
-                                    Vec3::empty()
+                                    [0.0, 0.0, 0.0, 1.0],
+                                    [0.0, 0.0, 0.0, 1.0],
+                                    [0.0, 0.0, 0.0, 1.0]
                                 ],
                                 col,
                                 rfl
@@ -196,36 +199,36 @@ impl Mesh{
                     );
                 } else if vals[0].to_string() == "vn".to_string(){
                     t_n.push(
-                        Vec3{
-                            x:vals[1].parse::<f32>().unwrap(), 
-                            y:vals[2].parse::<f32>().unwrap(), 
-                            z:vals[3].parse::<f32>().unwrap(), 
-                            w:1.0
-                        }.normalize()
+                        [
+                            vals[1].parse::<f32>().unwrap(), 
+                            vals[2].parse::<f32>().unwrap(), 
+                            vals[3].parse::<f32>().unwrap(), 
+                            1.0
+                        ].normalize()
                     )
                 }
             }
         }
-        return Mesh{tris:ts, rot:Vec3::empty(), vel:Vec3::empty(), rot_vel:Vec3::empty(), tex};
+        return Mesh{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0], tex};
     }
-    pub fn translate(&self, t : Vec3)->Self{
+    pub fn translate(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.translate(t));
         }
         return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
-    pub fn scale(&self, t : Vec3)->Self{
+    pub fn scale(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.scale(t));
         }
         return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
-    pub fn rotate_point(&self, deg : Vec3, point : Vec3)->Self{
+    pub fn rotate_point(&self, deg : [f32;4], point : [f32;4])->Self{
         let mut ts = Vec::new();
         for i in 0..ts.len(){
-            ts.push(self.tris[i].translate(-point));
+            ts.push(self.tris[i].translate(point.negative()));
             if deg[2] != 0.0{
                 ts[i] = ts[i].multiply_mat(Engine::z_rot(deg[2]));
             }
@@ -237,19 +240,19 @@ impl Mesh{
             }
             ts[i] = ts[i].translate(point);
         }
-        return Mesh{tris:ts, rot:self.rot+deg, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        return Mesh{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
     #[inline]
-    pub fn upd(&self, scalar : Vec3, trans : Vec3, rot : Vec3, rot_point : Vec3)->Self{
+    pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4])->Self{
         let center = self.center();
         
-        let ts = self.tris.iter().map(|i|{
+        let ts = self.tris.iter().map(|&i|{
             return i.upd(scalar, trans, rot, rot_point, center);
         }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot+rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
     }
     pub fn multiply_mat(&self, mat:[[f32;4];4])->Self{
-        let ts = self.tris.iter().map(|i|{
+        let ts = self.tris.iter().map(|&i|{
             return i.multiply_mat(mat)
         }).collect::<Vec<Tri3d>>();
         return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
@@ -259,10 +262,10 @@ impl Mesh{
 
 
 
-pub fn point_at(pos : Vec3, target : Vec3, up : Vec3)->[[f32;4];4]{
-    let forward = (target-pos).normalize();
+pub fn point_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
+    let forward = target.subtract(pos).normalize();
     
-    let up = (up-(forward*(up.dot_product(forward)))).normalize();
+    let up = up.subtract(forward.scale_c(up.dot_product(forward))).normalize();
     
     let right = up.cross_product(forward).normalize();
     
@@ -295,22 +298,22 @@ fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
         ]
     ]
 }
-pub fn look_at(pos : Vec3, target : Vec3, up : Vec3)->[[f32;4];4]{
+pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
     return quick_inv(point_at(pos, target, up));
 }
-pub fn vec_intersect_plane(plane_p : Vec3, plane_n : Vec3, line_s : Vec3, line_e : Vec3)->(Vec3, f32){
+pub fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], line_e : [f32;4])->([f32;4], f32){
     let plane_n = plane_n.normalize();
     let plane_d = -plane_p.dot_product(plane_n);
     let ad = line_s.dot_product(plane_n);
     let bd = line_e.dot_product(plane_n);
     let t = (-plane_d-ad)/(bd-ad);
-    return (line_s+(line_e-line_s*t), t);
+    return (line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0])), t);
 }
 
-pub fn clip_tri(plane_p : Vec3, plane_n : Vec3, in_tri : Tri3d, out_tris : &mut [Tri3d;2]) -> usize{
+pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mut [Tri3d;2]) -> usize{
     let plane_n = plane_n.normalize();
 
-    let dist = |p : Vec3|->f32{
+    let dist = |p : [f32;4]|->f32{
         return p.dot_product(plane_n)-plane_n.dot_product(plane_p)
     };
     let mut in_points = Vec::new();
@@ -364,7 +367,7 @@ pub fn clip_tri(plane_p : Vec3, plane_n : Vec3, in_tri : Tri3d, out_tris : &mut 
     } else if in_points.len() == 1{
         out_tris[0].col = in_tri.col;
         out_tris[0].rfl = in_tri.rfl;
-
+        
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
         out_tris[0].ps[0] = in_points[0];
@@ -390,14 +393,15 @@ pub fn clip_tri(plane_p : Vec3, plane_n : Vec3, in_tri : Tri3d, out_tris : &mut 
         ];
 
         out_tris[0].ns[0] = in_ns[0];
-        out_tris[0].ns[1] = (out_ns[0]*in_ns[0])*tab+in_ns[0];
-        out_tris[0].ns[2] = (out_ns[1]*in_ns[0])*tac+in_ns[0];
+        out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
+        out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
         
         return 1;
     } else if in_points.len() == 2{
         out_tris[0].col = in_tri.col;
-        out_tris[0].rfl = in_tri.rfl;
         out_tris[1].col = in_tri.col;
+
+        out_tris[0].rfl = in_tri.rfl;
         out_tris[1].rfl = in_tri.rfl;
 
 
@@ -420,8 +424,7 @@ pub fn clip_tri(plane_p : Vec3, plane_n : Vec3, in_tri : Tri3d, out_tris : &mut 
 
         out_tris[0].ns[0] = in_ns[0];
         out_tris[0].ns[1] = in_ns[1];
-        out_tris[0].ns[2] = (out_ns[0]-in_ns[0])*tac+in_ns[0];
-
+        out_tris[0].ns[2] = out_ns[0].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
         
         let tab = ab.1;
         
@@ -439,7 +442,7 @@ pub fn clip_tri(plane_p : Vec3, plane_n : Vec3, in_tri : Tri3d, out_tris : &mut 
 
         out_tris[1].ns[0] = in_ns[1];
         out_tris[1].ns[1] = out_tris[0].ns[2];
-        out_tris[1].ns[2] = (out_ns[0]-in_ns[1])*tab+in_ns[1];
+        out_tris[1].ns[2] = out_ns[0].subtract(in_ns[1]).scale_c(tab).add(in_ns[1]);
 
         return 2;
     }
@@ -449,13 +452,13 @@ pub fn clip_tri(plane_p : Vec3, plane_n : Vec3, in_tri : Tri3d, out_tris : &mut 
 pub fn estimate_normals(mesh:&mut Mesh){
     
     for i in 0..mesh.tris.len(){
-        let tri = &mesh.tris[i];
+        let tri = mesh.tris[i];
         for j in 0..3{
             let mut norm = tri.normal();
             let point = tri.ps[j];
             for i1 in 0..mesh.tris.len(){
                 if i1 != i{
-                    let tri1 = &mesh.tris[i1];
+                    let tri1 = mesh.tris[i1];
                     let mut c = false;
                     for j1 in 0..3{
                         let point1 = tri1.ps[j1];
@@ -465,7 +468,7 @@ pub fn estimate_normals(mesh:&mut Mesh){
                         }
                     }
                     if c{
-                        norm = norm+tri1.normal();
+                        norm = norm.add(tri1.normal());
                     }
                 }
                 
