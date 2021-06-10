@@ -124,17 +124,17 @@ impl Light{
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
         
-        let dp = norm.dot_product(self.dir.negative());
-        let cos_theta = clamp(dp, 0.0, 1.0);
-        let b = clamp(0.008*(cos_theta.acos().tan()), 0.0, 0.05);
-        //let b = 0.01;0
+        //let dp = norm.dot_product(self.dir.negative());
+        //let cos_theta = clamp(dp, 0.0, 1.0);
+        //let b = clamp(0.005*(cos_theta.acos().tan()), 0.0, 0.01);
+        let b = 0.01;
         let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
         if t[0] > 1.0 || t[0] < -1.0 || t[1] > 1.0 || t[1] < -1.0{
             return 0.0
         }
         let f = [((t[0]+1.0)*rw) as usize, ((t[1]+1.0)*rh) as usize]; 
         let d_val = -t[2];
-        let sc = 1.0/700.0;
+        let sc = 1.0/500.0;
         let mut l = 0.0;
         for i in 0..16{
             let ind = (f[0] as f32+POISSON_DISK[i%POISSON_DISK.len()][0]*sc) as usize + SHADOW_RESOLUTION.0 * (f[1] as f32+POISSON_DISK[i%POISSON_DISK.len()][1]*sc) as usize;

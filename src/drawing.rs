@@ -5,6 +5,7 @@ use crate::world::{Engine, look_at, point_at};
 use crate::ops::{clamp};
 use crate::{Vec3, Tri3d};
 use sdl2::gfx::primitives::DrawRenderer;
+use sdl2::rect::Point;
 use crate::ColFuncs;
 use crate::light::Light;
 
@@ -235,11 +236,10 @@ impl DrawTri for WindowCanvas{
                                     Color::BLACK
                                 };
                                 engine.depth_buffer[dbi] = tex_w;
-                                self.pixel(
-                                    x as i16,
-                                    y as i16, 
-                                    col
-                                ); 
+                                self.set_draw_color(col);
+                                self.draw_point(
+                                    Point::new(x, y)
+                                );
                             }
                         }
                     }
