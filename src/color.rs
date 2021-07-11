@@ -1,9 +1,12 @@
 use sdl2::pixels::Color;
-
+use std::ops::Add;
 pub trait ColFuncs{
     fn blend(&self, c:Self)->Self;
     fn avg(&self, c:Self)->Self;
+    fn scale(&self, s:f32)->Self;
+    fn add(&self, c:Self)->Self;
 }
+
 impl ColFuncs for Color{
     #[inline]
     fn blend(&self, c:Self)->Self{
@@ -16,6 +19,16 @@ impl ColFuncs for Color{
             ((self.g as u16 + c.g as u16)/2) as u8, 
             ((self.b as u16 + c.b as u16)/2) as u8,
         ));
+    }
+    #[inline]
+    fn scale(&self, s:f32)->Self{
+        let c = (s*255.0) as u8;
+        return self.blend(Color::RGB(c, c, c))
+    }
+
+    #[inline]
+    fn add(&self, c:Self)->Self{
+        return Color::RGB(self.r+c.r, self.g+c.g, self.b+c.b)
     }
 
 }

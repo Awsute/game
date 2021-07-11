@@ -23,7 +23,8 @@ pub struct Camera{
 pub struct Engine{
     pub camera : Camera,
     pub objects : Vec<Mesh>,
-    pub depth_buffer : Vec<f32>
+    pub depth_buffer : Vec<f32>,
+    pub transparency_buffer : Vec<(f32, Color)>
 }
 pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f32, window_width : f32, window_height : f32)->[[f32;4];4]{
     let t = ((fov/2.0)*(std::f32::consts::PI/180.0)).tan();
@@ -94,7 +95,7 @@ impl Mesh{
         return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
 
-    pub fn load_obj_file(file_path:String, tex:String, col:Color, rfl:f32)->Self{
+    pub fn load_obj_file(file_path:String, tex:String, col:Color, rfl:f32, trs:f32)->Self{
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
         let mut ts : Vec<Tri3d> = Vec::new();
@@ -104,7 +105,7 @@ impl Mesh{
         for line in reader.lines() {
             
             let ln = Box::leak(line.unwrap().into_boxed_str());
-            let mut vals : Vec<&str> = ln.split_whitespace().collect();
+            let vals : Vec<&str> = ln.split_whitespace().collect();
             if vals.len() > 0{
                 if vals[0].to_string() == "v".to_string() {
                     points.push(
@@ -140,7 +141,8 @@ impl Mesh{
                                     [0.0, 0.0, 0.0, 1.0]
                                 ],
                                 col,
-                                rfl
+                                rfl,
+                                trs
                             )
                         );
 
@@ -163,7 +165,8 @@ impl Mesh{
                                     [0.0, 0.0, 0.0, 1.0]
                                 ],
                                 col,
-                                rfl
+                                rfl,
+                                trs
                             )
                         );
                     } else if p1.len() == 3{
@@ -185,7 +188,8 @@ impl Mesh{
                                     t_n[p3[2].parse::<usize>().unwrap()-1]
                                 ],
                                 col,
-                                rfl
+                                rfl,
+                                trs
                             )
                         );
                     }
@@ -365,8 +369,7 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
     } else if in_points.len() == 0 {
         return 0;
     } else if in_points.len() == 1{
-        out_tris[0].col = in_tri.col;
-        out_tris[0].rfl = in_tri.rfl;
+        out_tris[0] = in_tri;
         
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
@@ -398,11 +401,9 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
         
         return 1;
     } else if in_points.len() == 2{
-        out_tris[0].col = in_tri.col;
-        out_tris[1].col = in_tri.col;
+        out_tris[0] = in_tri;
+        out_tris[1] = in_tri;
 
-        out_tris[0].rfl = in_tri.rfl;
-        out_tris[1].rfl = in_tri.rfl;
 
 
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);

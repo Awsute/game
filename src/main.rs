@@ -149,16 +149,18 @@ fn main() {
         camera : player_cam,
         objects : Vec::new(),
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
+        transparency_buffer : vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize]
     };
 
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
         
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0).translate([-5.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/travisScot.png".to_string(), Color::WHITE, 1.0, 0.5).translate([-5.0, 0.0, 5.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[0]);
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/travisScot.png".to_string(), Color::RED, 1.0, 0.7).translate([-5.0, 0.0, 8.0, 0.0]));
+    crate::world::estimate_normals(&mut engine.objects[1]);
 
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-7.0, 0.0, 5.0, 0.0]));
-    crate::world::estimate_normals(&mut engine.objects[0]);
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-7.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
     let mut l_src = Light::new([5.0, 1.0, 0.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(10.0, 10.0, 0.0, 50.0));
@@ -314,10 +316,10 @@ fn main() {
         
         let tr = [ew, eh, 1.0, 1.0];
         
-
         //reset the buffers only when the camera or objects move
         if cam_moved(&engine.camera) || objs_moved(&engine.objects){
             engine.depth_buffer = vec![0.0; (player_cam.window_height*player_cam.window_width) as usize];
+            engine.transparency_buffer = vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize];
         }
         if objs_moved(&engine.objects){
             l_src.buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
@@ -329,23 +331,21 @@ fn main() {
                 l_src.edit_shadow_buffer(engine.objects[i].tris[j]);
             }
         }
-             
-        for i in 0..engine.objects.len(){            
-            let obj = engine.objects[i].multiply_mat(cam_mat);
-            let mut otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
-            //otex.apply_fn(&|x, y, w, h, p, c|->Color{
-            //    return Color::WHITE;
-            //});
+        
+        for i in 0..engine.objects.len()*2{
+            let obj = engine.objects[i%engine.objects.len()].multiply_mat(cam_mat);
+            let otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i%engine.objects.len()].tex.as_str())).unwrap();
             for j in 0..obj.tris.len(){
-
+                
                 let normal = obj.tris[j].normal();
                 let c = obj.tris[j].center();
-                if normal.dot_product(c) >= 0.0 {
+                if normal.dot_product(c) >= 0.0{
+                    let draw = i >= engine.objects.len() || obj.tris[j].trs < 0.0;
                     let v = obj.tris[j];
                     let mut clipped = vec![v];
                     let trs = &mut [Tri3d::empty(), Tri3d::empty()];
                     for plane in &w_clip{
-                        for n in 0..clipped.len(){
+                        for _n in 0..clipped.len(){
                             let t_clipped = clip_tri(plane[0], plane[1], clipped[0], trs);
                             clipped.remove(0);
                             for b in 0..t_clipped{
@@ -354,72 +354,74 @@ fn main() {
                         }
                     }
                     for tri in clipped{
-                        let off = [1.0, 1.0, 0.0, 0.0];
-                        let mut t = tri.multiply_mat(mat3d);
-                        let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[2][3];
-                        t.uvs = tri.uvs;
+                        if tri.trs != 1.0{
+                            let off = [1.0, 1.0, 0.0, 0.0];
+                            let mut t = tri.multiply_mat(mat3d);
+                            let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[2][3];
+                            t.uvs = tri.uvs;
 
-                        t.uvs[0][1] *= t03;
-                        t.uvs[1][1] *= t13;
-                        t.uvs[2][1] *= t23;
-                        
-                        t.uvs[0][0] *= t03;
-                        t.uvs[1][0] *= t13;
-                        t.uvs[2][0] *= t23;
-                        
-                        t.uvs[0][2] = t03;
-                        t.uvs[1][2] = t13;
-                        t.uvs[2][2] = t23;
-                        
-                        t.ps[0] = t.ps[0].scale_c(t03).add(off).scale(tr);    
-                        t.ps[1] = t.ps[1].scale_c(t13).add(off).scale(tr);
-                        t.ps[2] = t.ps[2].scale_c(t23).add(off).scale(tr);
-                        //for plane in &clip{
-                        //    if v.len() > 0{
-                        //        let cont = &mut [Tri3d::empty(), Tri3d::empty()];
-                        //        let ntris = clip_tri(plane[0], plane[1], v[0], cont);
-                        //        v.remove(0);
-                        //        for b in 0..ntris{
-                        //            v.push(cont[b]);
-                        //        }
-                        //    }
-                        //}
-                        
-                        let mut etri = tri.multiply_mat(cam_pmat);
-                        etri.ps[0] = etri.ps[0].scale_c(t03);
-                        etri.ps[1] = etri.ps[1].scale_c(t13);
-                        etri.ps[2] = etri.ps[2].scale_c(t23);
+                            t.uvs[0][1] *= t03;
+                            t.uvs[1][1] *= t13;
+                            t.uvs[2][1] *= t23;
+                            
+                            t.uvs[0][0] *= t03;
+                            t.uvs[1][0] *= t13;
+                            t.uvs[2][0] *= t23;
+                            
+                            t.uvs[0][2] = t03;
+                            t.uvs[1][2] = t13;
+                            t.uvs[2][2] = t23;
+                            
+                            t.ps[0] = t.ps[0].scale_c(t03).add(off).scale(tr);    
+                            t.ps[1] = t.ps[1].scale_c(t13).add(off).scale(tr);
+                            t.ps[2] = t.ps[2].scale_c(t23).add(off).scale(tr);
+                            //for plane in &clip{
+                            //    if v.len() > 0{
+                            //        let cont = &mut [Tri3d::empty(), Tri3d::empty()];
+                            //        let ntris = clip_tri(plane[0], plane[1], v[0], cont);
+                            //        v.remove(0);
+                            //        for b in 0..ntris{
+                            //            v.push(cont[b]);
+                            //        }
+                            //    }
+                            //}
+                            
+                            let mut etri = tri.multiply_mat(cam_pmat);
+                            etri.ps[0] = etri.ps[0].scale_c(t03);
+                            etri.ps[1] = etri.ps[1].scale_c(t13);
+                            etri.ps[2] = etri.ps[2].scale_c(t23);
 
-                        //let dp  = normal.dot_product([0.0, 0.0, -1.0, 1.0]);
-                        //let darkness = (255.0*dp) as u8;
-                        //canvas.fill_triangle(
-                        //    o,     
-                        //    g,
-                        //    h,
-                        //    Color::from((darkness, darkness, darkness))
-                        //);
-                        
-                        
-                        canvas.textured_triangle(
-                            t.ps,
-                            t.uvs,
-                            otex.without_lock().unwrap(),
-                            otex.pitch() as usize,
-                            otex.width() as f32,
-                            otex.height() as f32,
-                            &mut engine,
-                            etri,
-                            &mut l_src,
-                            etri.col.avg(Color::GRAY)
-                        );
+                            //let dp  = normal.dot_product([0.0, 0.0, -1.0, 1.0]);
+                            //let darkness = (255.0*dp) as u8;
+                            //canvas.fill_triangle(
+                            //    o,     
+                            //    g,
+                            //    h,
+                            //    Color::from((darkness, darkness, darkness))
+                            //);
+                            
+                            
+                            canvas.textured_triangle(
+                                t.ps,
+                                t.uvs,
+                                otex.without_lock().unwrap(),
+                                otex.pitch() as usize,
+                                otex.width() as f32,
+                                otex.height() as f32,
+                                &mut engine,
+                                etri,
+                                &mut l_src,
+                                etri.col.avg(Color::GRAY),
+                                draw
+                            );
 
-                        //canvas.draw_triangle(
-                        //    o,
-                        //    g,
-                        //    h,
-                        //    Color::BLACK
-                        //);
-                                
+                            //canvas.draw_triangle(
+                            //    o,
+                            //    g,
+                            //    h,
+                            //    Color::BLACK
+                            //);
+                        }           
                     }
                 }    
             }

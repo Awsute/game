@@ -12,6 +12,7 @@ pub struct Light{
     pub buf : Vec<f32>,
 }
 pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
+pub const SPREAD_VAL : f32 = 1.0/500.0;
 
 impl Light{
     pub fn new(pos:[f32;4], col:Color, dir:[f32;4], proj_mat:[[f32;4];4])->Self{
@@ -120,7 +121,7 @@ impl Light{
         }
     }
     #[inline]
-    pub fn is_lit(&mut self, point:[f32;4], norm : [f32;4])->f32{
+    pub fn is_lit(&mut self, point:[f32;4])->f32{
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
         
@@ -134,10 +135,10 @@ impl Light{
         }
         let f = [((t[0]+1.0)*rw) as usize, ((t[1]+1.0)*rh) as usize]; 
         let d_val = -t[2];
-        let sc = 1.0/500.0;
+
         let mut l = 0.0;
         for i in 0..16{
-            let ind = (f[0] as f32+POISSON_DISK[i%POISSON_DISK.len()][0]*sc) as usize + SHADOW_RESOLUTION.0 * (f[1] as f32+POISSON_DISK[i%POISSON_DISK.len()][1]*sc) as usize;
+            let ind = (f[0] as f32+POISSON_DISK[i%POISSON_DISK.len()][0]*SPREAD_VAL) as usize + SHADOW_RESOLUTION.0 * (f[1] as f32+POISSON_DISK[i%POISSON_DISK.len()][1]*SPREAD_VAL) as usize;
             if ind < SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1 {
                 if d_val-b <= self.buf[ind] && d_val > 0.0 && d_val < 1.0{
                     l += 1.0/16.0;
