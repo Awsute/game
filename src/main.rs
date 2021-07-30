@@ -106,7 +106,7 @@ fn main() {
 
     let mut window = video_subsystem.window("game", 800, 750)
         .opengl()
-        //.fullscreen_desktop()
+        .fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -336,7 +336,6 @@ fn main() {
             let obj = engine.objects[i%engine.objects.len()].multiply_mat(cam_mat);
             let otex : Surface = image::LoadSurface::from_file(Path::new(engine.objects[i%engine.objects.len()].tex.as_str())).unwrap();
             for j in 0..obj.tris.len(){
-                
                 let normal = obj.tris[j].normal();
                 let c = obj.tris[j].center();
                 if normal.dot_product(c) >= 0.0{
