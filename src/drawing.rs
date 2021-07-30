@@ -225,7 +225,7 @@ impl DrawTri for WindowCanvas{
                                 //note: col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
                                 let col = if ind < buffer.len()-2{
                                     let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
-                                    let specr = (r.powi(5)*255.0) as u8;
+                                    let specr = (r.powi(3)*255.0) as u8;
                                     let spec_r = Color::RGB(specr, specr, specr);
                                     let modif = spec_r.avg(diff);
 
