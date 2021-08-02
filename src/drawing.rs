@@ -234,14 +234,14 @@ impl DrawTri for WindowCanvas{
                                         modif.blend(shadow).blend(light.col).avg(ambient)
                                     );
                                     let col = if tr_buf.0 > 0.0{
-                                        tr_buf.1.scale(1.0-tr_buf.0).add(pot_col.scale(tr_buf.0))
+                                        tr_buf.1.scale(tr_buf.0).add(pot_col.scale(1.0-tr_buf.0))
                                     } else {
                                         pot_col
                                     };
                                     col
 
                                 } else {
-                                    Color::BLACK
+                                    Color::WHITE
                                 };
 
                                 
@@ -252,7 +252,7 @@ impl DrawTri for WindowCanvas{
                                     );
                                 } else if tex_w > engine.depth_buffer[dbi]{
                                     engine.depth_buffer[dbi] = tex_w;
-                                    engine.transparency_buffer[dbi] = (tri_info.trs, col.avg(engine.transparency_buffer[dbi].1))
+                                    engine.transparency_buffer[dbi] = (tri_info.trs, col.avg(tr_buf.1))
                                 }
                                 
                             }
