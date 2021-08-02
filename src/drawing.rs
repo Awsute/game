@@ -250,11 +250,11 @@ impl DrawTri for WindowCanvas{
                                     self.draw_point(
                                         Point::new(x, y)
                                     );
-                                }
-                                if tex_w > engine.depth_buffer[dbi]{
+                                } else if tex_w > engine.depth_buffer[dbi]{
                                     engine.depth_buffer[dbi] = tex_w;
-                                    engine.transparency_buffer[dbi] = (tri_info.trs, col)
+                                    engine.transparency_buffer[dbi] = (tri_info.trs, col.avg(engine.transparency_buffer[dbi].1))
                                 }
+                                
                             }
                         }
                     }

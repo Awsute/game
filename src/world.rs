@@ -71,6 +71,11 @@ impl Engine{
             [0.0, 0.0, 0.0, 1.0]
         ];
     }
+    pub fn sort_objs(&mut self){
+        let cpos = self.camera.pos;
+        self.objects.sort_by(|a, b| b.center().subtract(cpos).magnitude().partial_cmp(&a.center().subtract(cpos).magnitude()).unwrap())
+
+    }
 
 }
 pub struct Mesh{
@@ -478,6 +483,7 @@ pub fn estimate_normals(mesh:&mut Mesh){
         }
     }
 }
+
 pub const POISSON_DISK : [[f32;2];16] = [
     [-0.94201624, -0.39906216 ], 
     [0.94558609, -0.76890725 ], 
