@@ -29,13 +29,13 @@ pub struct Engine{
     pub point_lights : Vec<crate::light::PointLight>
 }
 pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f32, window_width : f32, window_height : f32)->[[f32;4];4]{
-    let t = ((fov/2.0)*(std::f32::consts::PI/180.0)).tan();
+    let t = (fov.to_radians()*0.5).tan();
     let zratio = render_distance/(render_distance-clip_distance);
     return [
-        [-1.0/(t*window_width/window_height), 0.0, 0.0, 0.0],
+        [-window_height/(t*window_width), 0.0, 0.0, 0.0],
         [0.0, -1.0/t, 0.0, 0.0],
         [0.0, 0.0, zratio, 1.0],
-        [0.0, 0.0, -clip_distance*zratio, 0.0]
+        [0.0, 0.0, clip_distance*-zratio, 0.0]
     ];
 }
 pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{

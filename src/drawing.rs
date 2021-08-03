@@ -219,45 +219,47 @@ impl DrawTri for WindowCanvas{
                                 
                                 //note: col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
                                 let col = if ind < buffer.len()-2{
-                                    let mut pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]);
+                                    let mut add_col = Color::WHITE;
                                     for light in &engine.dir_lights{
                                         let dp = norm.dot_product(light.dir.negative().normalize());
                                         let cos_theta = clamp(dp, 0.0, 1.0);
-        
+                                        
                                         let c_cos_theta = (cos_theta*255.0) as u8;
-
+                                        
                                         let r = norm.scale_c(2.0*(dp)).subtract(light.dir.negative()).normalize().dot_product(engine.camera.dir.negative());
                                         let r = clamp(r, 0.0, 1.0)*tri_info.rfl;
-                                        let g = light.is_lit(point);
+                                        let g = light.is_lit(point, norm);
                                         let shadow_c = (g*255.0) as u8;
-
+                                        
                                         let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
                                         let specr = (r.powi(3)*255.0) as u8;
                                         let spec_r = Color::RGB(specr, specr, specr);
                                         let modif = spec_r.avg(diff);
-
+                                        
                                         let shadow = Color::RGB(shadow_c, shadow_c, shadow_c);
-                                        pot_col = pot_col.avg(modif.blend(shadow))
+                                        add_col = add_col.blend(modif.blend(shadow))
                                     }
+                                    
                                     for light in &engine.point_lights{
                                         let dp = norm.dot_product(light.dir.negative().normalize());
                                         let cos_theta = clamp(dp, 0.0, 1.0);
-        
+                                        
                                         let c_cos_theta = (cos_theta*255.0) as u8;
-
+                                        
                                         let r = norm.scale_c(2.0*(dp)).subtract(light.dir.negative()).normalize().dot_product(engine.camera.dir.negative());
                                         let r = clamp(r, 0.0, 1.0)*tri_info.rfl;
-                                        let g = light.is_lit(point);
+                                        let g = light.is_lit(point, norm);
                                         let shadow_c = (g*255.0) as u8;
-
+                                        
                                         let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
                                         let specr = (r.powi(3)*255.0) as u8;
                                         let spec_r = Color::RGB(specr, specr, specr);
                                         let modif = spec_r.avg(diff);
-
+                                        
                                         let shadow = Color::RGB(shadow_c, shadow_c, shadow_c);
-                                        pot_col = pot_col.avg(modif.blend(shadow))
+                                        add_col = add_col.blend(modif.blend(shadow))
                                     }
+                                    let pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(add_col);
 
                                     let col = if tr_buf.0 > 0.0{
                                         tr_buf.1.scale(tr_buf.0).add(pot_col.scale(1.0-tr_buf.0))

@@ -107,7 +107,7 @@ fn main() {
 
     let mut window = video_subsystem.window("game", 800, 750)
         .opengl()
-        .fullscreen_desktop()
+        //.fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -158,7 +158,7 @@ fn main() {
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
     
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/travisScot.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 6.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[0]);
     engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 8.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[1]);
@@ -183,7 +183,7 @@ fn main() {
             [5.0, 0.0, 5.0, 1.0], 
             Color::RGB(225, 225, 200), 
             [-1.0, 0.0, 0.0, 1.0].normalize(), 
-            world::matrix3d_perspective(90f32.to_radians(), 10.0, 0.1, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
+            world::matrix3d_perspective(90.0, 100.0, 0.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
         )
     );
     
@@ -191,6 +191,9 @@ fn main() {
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
+    let mat3d = engine.point_lights[0].proj_mat;
+    engine.camera.pos = engine.point_lights[0].pos;
+    engine.camera.dir = engine.point_lights[0].dir;
     let mut seconds_passed = 0.0;
     
     
@@ -348,7 +351,7 @@ fn main() {
         }
         if objs_moved(&engine.objects){
             for i in 0..engine.point_lights.len(){
-                engine.point_lights[i].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
+                engine.point_lights[i].buf = vec![0.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
             }
             for i in 0..engine.dir_lights.len(){
                 engine.dir_lights[i].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
