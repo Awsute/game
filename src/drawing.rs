@@ -215,10 +215,14 @@ impl DrawTri for WindowCanvas{
 
                                 //let c = (dp.powi(5)*255.0) as u8;
 
-
+                                
                                 
                                 //note: col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
+                                
+                                
+                                
                                 let col = if ind < buffer.len()-2{
+                                    
                                     let mut add_col = Color::WHITE;
                                     for light in &engine.dir_lights{
                                         let dp = norm.dot_product(light.dir.negative().normalize());

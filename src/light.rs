@@ -1,4 +1,5 @@
 use sdl2::pixels::{Color};
+use sdl2::surface::Surface;
 use crate::ColFuncs;
 use crate::world::{Engine, look_at, point_at, POISSON_DISK};
 use crate::ops::{Tri3d, Vec3, operations4x4, clamp};
@@ -167,7 +168,6 @@ impl PointLight{
     pub fn edit_shadow_buffer(&mut self, tri : Tri3d){
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
-
         let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
         //if 
         //    (t.ps[0][0] < -1.0 || t.ps[0][0] > 1.0 || t.ps[0][1] < -1.0 || t.ps[0][1] > 1.0) &&
@@ -181,7 +181,7 @@ impl PointLight{
             return;
         }
 
-        let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[1][3];
+        let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[2][3];
         let mut c1 = [(t.ps[0][0]*t03+1.0)*rw, (t.ps[0][1]*t03+1.0)*rh, t.ps[0][2]*t03, t03];    
         let mut c2 = [(t.ps[1][0]*t13+1.0)*rw, (t.ps[1][1]*t13+1.0)*rh, t.ps[1][2]*t13, t13];
         let mut c3 = [(t.ps[2][0]*t23+1.0)*rw, (t.ps[2][1]*t23+1.0)*rh, t.ps[2][2]*t23, t23];
@@ -230,13 +230,11 @@ impl PointLight{
             dcw_step = (c3[3] - c2[3])*dc;
 
         }
-
         for y in c1[1] as i32+1..c3[1] as i32+1{
             if y > 0 && y < SHADOW_RESOLUTION.1 as i32{
-                let mut ax : i32;
-                let mut bx : i32;
-
-
+                let mut ax : f32;
+                let mut bx : f32;
+                
                 let mut az : f32;
                 let mut bz : f32;
 
@@ -245,9 +243,9 @@ impl PointLight{
                 let ys1 = y as f32-c1[1];
                 let ys2 = y as f32-c2[1];
                 if y < c2[1] as i32+1 {
-                    ax = (c1[0] + (ys1) * dax_step) as i32;
-                    bx = (c1[0] + (ys1) * dbx_step) as i32;
-
+                    ax = c1[0] + (ys1) * dax_step;
+                    bx = c1[0] + (ys1) * dbx_step;
+                    
                     az = c1[2] + (ys1) * daz_step;
                     bz = c1[2] + (ys1) * dbz_step;
 
@@ -255,8 +253,8 @@ impl PointLight{
                     bw = c1[3] + (ys1) * dbw_step;
 
                 } else {
-                    ax = (c2[0] + (ys2) * dcx_step) as i32;
-                    bx = (c1[0] + (ys1) * dbx_step) as i32;
+                    ax = c2[0] + (ys2) * dcx_step;
+                    bx = c1[0] + (ys1) * dbx_step;
 
                     az = c2[2] + (ys2) * dcz_step;
                     bz = c1[2] + (ys1) * dbz_step;
@@ -269,14 +267,14 @@ impl PointLight{
                     swap(&mut az, &mut bz);
                     swap(&mut aw, &mut bw);
                 }
-                let tstep = 1.0/(bx - ax) as f32;
-                for x in ax..bx{
+                let tstep = 1.0/(bx - ax);
+                for x in (ax-1.0) as i32..(bx+1.0) as i32{
                     
                     if x > 0 && x < SHADOW_RESOLUTION.0 as i32{
                         
-                        let t = (x-ax) as f32*tstep;
-                        let z = (1.0 - t) * az + t * bz;
+                        let t = (x as f32-ax)*tstep;
                         let w = (1.0 - t) * aw + t * bw;
+                        let z = (1.0 - t) * az + t * bz;
                         let ind = x as usize + SHADOW_RESOLUTION.0 * y as usize;
                         if w > self.buf[ind] && w > 0.0 && w < 1.0{
                             self.buf[ind] = w;
@@ -291,21 +289,23 @@ impl PointLight{
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
         
-        let dp = norm.dot_product(self.dir.negative());
-        let cos_theta = clamp(dp, 0.0, 1.0);
-        let b = clamp(0.01*(cos_theta.acos().tan()), 0.0, 0.01);
-        //let b = 0.01;
+        //let dp = norm.dot_product(self.dir.negative());
+        //let cos_theta = clamp(dp, 0.0, 1.0);
+        //let b = clamp(0.05*(cos_theta.acos().tan()), 0.0, 0.05);
+        let b = 0.05;
         let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
-        //if t[0] > 1.0 || t[0] < -1.0 || t[1] > 1.0 || t[1] < -1.0 || norm.dot_product(self.dir) >= 0.0{
-        //    return 0.0
-        //}
+        if norm.dot_product(self.dir) >= 0.0{
+            return 0.0
+        }
         let t3 = 1.0/t[3];
-        let f = [((t[0]*t3+1.0)*rw) as usize, ((t[1]*t3+1.0)*rh) as usize+1]; 
+        let f = [(t[0]*t3+1.0)*rw, (t[1]*t3+1.0)*rh, t[2]*t3]; 
         
-
+        //if f[0] as usize <= 0 || f[0] as usize >= SHADOW_RESOLUTION.0 || f[1] as usize <= 0 || f[1] as usize >= SHADOW_RESOLUTION.1{
+        //    return 0.0;
+        //}
         let mut l = 0.0;
         for i in 0..16{
-            let ind = (f[0] as f32+POISSON_DISK[i%POISSON_DISK.len()][0]*SPREAD_VAL) as usize + SHADOW_RESOLUTION.0 * (f[1] as f32+POISSON_DISK[i%POISSON_DISK.len()][1]*SPREAD_VAL) as usize;
+            let ind = (f[0]+POISSON_DISK[i%POISSON_DISK.len()][0]*SPREAD_VAL) as usize + SHADOW_RESOLUTION.0 * (f[1]+POISSON_DISK[i%POISSON_DISK.len()][1]*SPREAD_VAL) as usize;
             if ind < SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1 {
                 if t3+b >= self.buf[ind] && t3 > 0.0 && t3 < 1.0{
                     l += 1.0/16.0;

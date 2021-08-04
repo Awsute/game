@@ -183,7 +183,7 @@ fn main() {
             [5.0, 0.0, 5.0, 1.0], 
             Color::RGB(225, 225, 200), 
             [-1.0, 0.0, 0.0, 1.0].normalize(), 
-            world::matrix3d_perspective(90.0, 100.0, 0.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
+            world::matrix3d_perspective(90.0, 200.0, 0.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
         )
     );
     
@@ -191,9 +191,9 @@ fn main() {
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
-    let mat3d = engine.point_lights[0].proj_mat;
-    engine.camera.pos = engine.point_lights[0].pos;
-    engine.camera.dir = engine.point_lights[0].dir;
+    //let mat3d = engine.point_lights[0].proj_mat;
+    //engine.camera.pos = engine.point_lights[0].pos;
+    //engine.camera.dir = engine.point_lights[0].dir;
     let mut seconds_passed = 0.0;
     
     
