@@ -7,7 +7,7 @@ use crate::{Vec3, Tri3d};
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::rect::Point;
 use crate::ColFuncs;
-use crate::light::DirLight;
+use crate::light::Light;
 
 pub trait DrawTri{
     fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
@@ -209,7 +209,7 @@ impl DrawTri for WindowCanvas{
                                 let tr_buf = engine.transparency_buffer[dbi];
 
                                 let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
-                                let norm = ls.scale_c(1.0-t).add(le.scale_c(t));
+                                let norm = ls.scale_c(1.0-t).add(le.scale_c(t)).normalize();
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
 
 
@@ -224,7 +224,7 @@ impl DrawTri for WindowCanvas{
                                 let col = if ind < buffer.len()-2{
                                     
                                     let mut add_col = Color::WHITE;
-                                    for light in &engine.dir_lights{
+                                    for light in &engine.lights{
                                         let dp = norm.dot_product(light.dir.negative().normalize());
                                         let cos_theta = clamp(dp, 0.0, 1.0);
                                         
@@ -236,33 +236,14 @@ impl DrawTri for WindowCanvas{
                                         let shadow_c = (g*255.0) as u8;
                                         
                                         let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
-                                        let specr = (r.powi(3)*255.0) as u8;
+                                        let specr = (r.powi(5)*255.0) as u8;
                                         let spec_r = Color::RGB(specr, specr, specr);
                                         let modif = spec_r.avg(diff);
                                         
                                         let shadow = Color::RGB(shadow_c, shadow_c, shadow_c);
-                                        add_col = add_col.blend(modif.blend(shadow))
+                                        add_col = add_col.blend(modif.blend(shadow).blend(light.col))
                                     }
                                     
-                                    for light in &engine.point_lights{
-                                        let dp = norm.dot_product(light.dir.negative().normalize());
-                                        let cos_theta = clamp(dp, 0.0, 1.0);
-                                        
-                                        let c_cos_theta = (cos_theta*255.0) as u8;
-                                        
-                                        let r = norm.scale_c(2.0*(dp)).subtract(light.dir.negative()).normalize().dot_product(engine.camera.dir.negative());
-                                        let r = clamp(r, 0.0, 1.0)*tri_info.rfl;
-                                        let g = light.is_lit(point, norm);
-                                        let shadow_c = (g*255.0) as u8;
-                                        
-                                        let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
-                                        let specr = (r.powi(3)*255.0) as u8;
-                                        let spec_r = Color::RGB(specr, specr, specr);
-                                        let modif = spec_r.avg(diff);
-                                        
-                                        let shadow = Color::RGB(shadow_c, shadow_c, shadow_c);
-                                        add_col = add_col.blend(modif.blend(shadow))
-                                    }
                                     let pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(add_col);
 
                                     let col = if tr_buf.0 > 0.0{

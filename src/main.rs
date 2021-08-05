@@ -33,8 +33,7 @@ mod color;
 use color::ColFuncs;
 
 mod light;
-use light::DirLight;
-use light::PointLight;
+use light::Light;
 
 trait Surf{
     fn color_at(&self, x:f32, y:f32)->Color;
@@ -151,15 +150,14 @@ fn main() {
         objects : Vec::new(),
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
         transparency_buffer : vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize],
-        dir_lights : Vec::new(),
-        point_lights : Vec::new()
+        lights : Vec::new()
     };
 
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
     
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 6.0, 0.0]));
-    crate::world::estimate_normals(&mut engine.objects[0]);
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::YELLOW, 0.5, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
+    //crate::world::estimate_normals(&mut engine.objects[0]);
     engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 8.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[1]);
     
@@ -168,22 +166,14 @@ fn main() {
     
     
     
-    //engine.dir_lights.push(
-    //    DirLight::new(
-    //        [5.0, 0.0, 5.0, 1.0], 
-    //        Color::RGB(225, 225, 200), 
-    //        [-1.0, 0.0, 0.0, 1.0].normalize(), 
-    //        world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
-    //    )
-    //);
-    
-    
-    engine.point_lights.push(
-        PointLight::new(
-            [5.0, 0.0, 5.0, 1.0], 
-            Color::RGB(225, 225, 200), 
+    engine.lights.push(
+        Light::new(
+            [10.0, 0.0, 5.0, 1.0], 
+            Color::RGB(225, 255, 200), 
             [-1.0, 0.0, 0.0, 1.0].normalize(), 
-            world::matrix3d_perspective(90.0, 200.0, 0.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
+            //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
+
+            world::matrix3d_perspective(90.0, 100.0, 0.1, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
         )
     );
     
@@ -210,12 +200,14 @@ fn main() {
         return camera.vel[0] != 0.0 || camera.vel[1] != 0.0 || camera.vel[2] != 0.0 || camera.rot_vel[0] != 0.0 || camera.rot_vel[1] != 0.0 || camera.rot_vel[2] != 0.0
     };
     
-    
+    engine.sort_objs();
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
         let FPS = fps_manager.get_framerate() as f32;
         seconds_passed += 1.0/FPS;
+
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
@@ -350,22 +342,16 @@ fn main() {
             engine.sort_objs()
         }
         if objs_moved(&engine.objects){
-            for i in 0..engine.point_lights.len(){
-                engine.point_lights[i].buf = vec![0.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
-            }
-            for i in 0..engine.dir_lights.len(){
-                engine.dir_lights[i].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
+            for i in 0..engine.lights.len(){
+                engine.lights[i].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
             }
         }
 
         for i in 0..engine.objects.len(){
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
-                for o in 0..engine.point_lights.len(){
-                    engine.point_lights[o].edit_shadow_buffer(engine.objects[i].tris[j]);
-                }
-                for o in 0..engine.dir_lights.len(){
-                    engine.dir_lights[o].edit_shadow_buffer(engine.objects[i].tris[j]);
+                for o in 0..engine.lights.len(){
+                    engine.lights[o].edit_shadow_buffer(engine.objects[i].tris[j]);
                 }
             }
         }

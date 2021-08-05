@@ -25,8 +25,7 @@ pub struct Engine{
     pub objects : Vec<Mesh>,
     pub depth_buffer : Vec<f32>,
     pub transparency_buffer : Vec<(f32, Color)>,
-    pub dir_lights : Vec<crate::light::DirLight>,
-    pub point_lights : Vec<crate::light::PointLight>
+    pub lights : Vec<crate::light::Light>
 }
 pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f32, window_width : f32, window_height : f32)->[[f32;4];4]{
     let t = (fov.to_radians()*0.5).tan();
@@ -42,7 +41,7 @@ pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
     return [
         [1.0/r, 0.0, 0.0, 0.0],
         [0.0, 1.0/t, 0.0, 0.0],
-        [0.0, 0.0, -2.0/(f-n), -(f+n)/(f-n)],
+        [0.0, 0.0, 1.0/(f-n), 0.0],
         [0.0, 0.0, 0.0, 1.0]
     ]
 }
