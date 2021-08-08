@@ -24,13 +24,14 @@ pub struct Engine{
     pub camera : Camera,
     pub objects : Vec<Mesh>,
     pub depth_buffer : Vec<f32>,
-    pub transparency_buffer : Vec<(f32, Color)>
+    pub transparency_buffer : Vec<(f32, Color)>,
+    pub lights : Vec<crate::light::Light>
 }
 pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f32, window_width : f32, window_height : f32)->[[f32;4];4]{
-    let t = ((fov/2.0)*(std::f32::consts::PI/180.0)).tan();
+    let t = (fov.to_radians()*0.5).tan();
     let zratio = render_distance/(render_distance-clip_distance);
     return [
-        [-1.0/(t*window_width/window_height), 0.0, 0.0, 0.0],
+        [-window_height/(t*window_width), 0.0, 0.0, 0.0],
         [0.0, -1.0/t, 0.0, 0.0],
         [0.0, 0.0, zratio, 1.0],
         [0.0, 0.0, -clip_distance*zratio, 0.0]
@@ -40,7 +41,7 @@ pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
     return [
         [1.0/r, 0.0, 0.0, 0.0],
         [0.0, 1.0/t, 0.0, 0.0],
-        [0.0, 0.0, -2.0/(f-n), -(f+n)/(f-n)],
+        [0.0, 0.0, 1.0/(f-n), 0.0],
         [0.0, 0.0, 0.0, 1.0]
     ]
 }
@@ -70,6 +71,11 @@ impl Engine{
             [0.0, 0.0, 1.0, 0.0],
             [0.0, 0.0, 0.0, 1.0]
         ];
+    }
+    pub fn sort_objs(&mut self){
+        let cpos = self.camera.pos;
+        self.objects.sort_by(|a, b| b.center().subtract(cpos).magnitude().partial_cmp(&a.center().subtract(cpos).magnitude()).unwrap())
+
     }
 
 }
@@ -478,6 +484,7 @@ pub fn estimate_normals(mesh:&mut Mesh){
         }
     }
 }
+
 pub const POISSON_DISK : [[f32;2];16] = [
     [-0.94201624, -0.39906216 ], 
     [0.94558609, -0.76890725 ], 

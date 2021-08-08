@@ -106,7 +106,7 @@ fn main() {
 
     let mut window = video_subsystem.window("game", 800, 750)
         .opengl()
-        .fullscreen_desktop()
+        //.fullscreen_desktop()
         .build()
         .map_err(|e| e.to_string())
         .unwrap();
@@ -149,26 +149,41 @@ fn main() {
         camera : player_cam,
         objects : Vec::new(),
         depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
-        transparency_buffer : vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize]
+        transparency_buffer : vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize],
+        lights : Vec::new()
     };
 
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-7.0, 0.0, 5.0, 0.0]));
     
-    
-
-    engine.objects.push(Mesh::load_obj_file("assets/dasauce.obj".to_string(),"assets/white.png".to_string(), Color::RED, 0.9, 0.5).translate([-5.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::YELLOW, 0.5, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
+    crate::world::estimate_normals(&mut engine.objects[0]);
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 8.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[1]);
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::GREEN, 1.0, 0.25).translate([-5.0, 0.0, 8.0, 0.0]));
-    crate::world::estimate_normals(&mut engine.objects[2]);
-
+    
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([5.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(10.0, 10.0, 0.0, 50.0));
+    
+    
+    engine.lights.push(
+        Light::new(
+            [10.0, 0.0, 5.0, 1.0], 
+            Color::RGB(225, 255, 255), 
+            [-1.0, 0.0, 0.0, 1.0].normalize(), 
+            //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
+
+            world::matrix3d_perspective(90.0, 100.0, 0.1, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32)
+        )
+    );
+    
+    
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
+    //let mat3d = engine.point_lights[0].proj_mat;
+    //engine.camera.pos = engine.point_lights[0].pos;
+    //engine.camera.dir = engine.point_lights[0].dir;
     let mut seconds_passed = 0.0;
     
     
@@ -185,12 +200,14 @@ fn main() {
         return camera.vel[0] != 0.0 || camera.vel[1] != 0.0 || camera.vel[2] != 0.0 || camera.rot_vel[0] != 0.0 || camera.rot_vel[1] != 0.0 || camera.rot_vel[2] != 0.0
     };
     
-    
+    engine.sort_objs();
     'running: loop {
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
         let FPS = fps_manager.get_framerate() as f32;
         seconds_passed += 1.0/FPS;
+
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
@@ -322,15 +339,20 @@ fn main() {
         if cam_moved(&engine.camera) || objs_moved(&engine.objects){
             engine.depth_buffer = vec![0.0; (player_cam.window_height*player_cam.window_width) as usize];
             engine.transparency_buffer = vec![(0.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize];
+            engine.sort_objs()
         }
         if objs_moved(&engine.objects){
-            l_src.buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
+            for i in 0..engine.lights.len(){
+                engine.lights[i].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
+            }
         }
 
         for i in 0..engine.objects.len(){
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/FPS), engine.objects[i].rot_vel.scale_c(1.0/FPS), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
-                l_src.edit_shadow_buffer(engine.objects[i].tris[j]);
+                for o in 0..engine.lights.len(){
+                    engine.lights[o].edit_shadow_buffer(engine.objects[i].tris[j]);
+                }
             }
         }
         
@@ -341,7 +363,7 @@ fn main() {
                 let normal = obj.tris[j].normal();
                 let c = obj.tris[j].center();
                 if normal.dot_product(c) >= 0.0{
-                    let draw = i >= engine.objects.len() || obj.tris[j].trs > 0.0;
+                    let draw = i >= engine.objects.len();
                     let v = obj.tris[j];
                     let mut clipped = vec![v];
                     let trs = &mut [Tri3d::empty(), Tri3d::empty()];
@@ -411,7 +433,6 @@ fn main() {
                                 otex.height() as f32,
                                 &mut engine,
                                 etri,
-                                &mut l_src,
                                 etri.col.avg(Color::GRAY),
                                 draw
                             );
