@@ -241,7 +241,7 @@ impl DrawTri for WindowCanvas{
                                     col
 
                                 } else {
-                                    Color::BLACK
+                                    Color::WHITE
                                 };
 
                                 
@@ -253,7 +253,9 @@ impl DrawTri for WindowCanvas{
                                 }
                                 if tex_w > engine.depth_buffer[dbi]{
                                     engine.depth_buffer[dbi] = tex_w;
+                                    
                                     engine.transparency_buffer[dbi] = (tri_info.trs, col)
+                                    
                                 }
                             }
                         }

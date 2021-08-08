@@ -154,16 +154,18 @@ fn main() {
 
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0).scale([1.0, 50.0, 50.0, 1.0]).translate([-10.0, 0.0, -5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RGB(250, 250, 10), 1.0).translate([-5.0, 0.0, 0.0, 0.0]));
-        
-    engine.objects.push(Mesh::load_obj_file("assets/dasauce.obj".to_string(),"assets/white.png".to_string(), Color::RED, 0.9, 0.0).translate([0.0, 0.0, 0.0, 0.0]));
-    crate::world::estimate_normals(&mut engine.objects[0]);
-    //engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/travisScot.png".to_string(), Color::RED, 1.0, 0.0).translate([-5.0, 0.0, 8.0, 0.0]));
-    //crate::world::estimate_normals(&mut engine.objects[1]);
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-7.0, 0.0, 5.0, 0.0]));
+    
+    
 
-    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-7.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/dasauce.obj".to_string(),"assets/white.png".to_string(), Color::RED, 0.9, 0.5).translate([-5.0, 0.0, 5.0, 0.0]));
+    crate::world::estimate_normals(&mut engine.objects[1]);
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::GREEN, 1.0, 0.25).translate([-5.0, 0.0, 8.0, 0.0]));
+    crate::world::estimate_normals(&mut engine.objects[2]);
+
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
-    let mut l_src = Light::new([0.0, 0.0, 5.0, 1.0], Color::WHITE, [0.0, 0.0, -1.0, 1.0].normalize(), world::matrix3d_ortho(10.0, 10.0, 0.0, 50.0));
+    let mut l_src = Light::new([5.0, 0.0, 5.0, 1.0], Color::WHITE, [-1.0, 0.0, 0.0, 1.0].normalize(), world::matrix3d_ortho(10.0, 10.0, 0.0, 50.0));
     let cspeed = 10.0;
     let rspeed = 60.0_f32.to_radians();
     let mat3d = world::matrix3d_perspective(engine.camera.fov, engine.camera.render_distance, engine.camera.clip_distance, engine.camera.window_width, engine.camera.window_height);
@@ -339,7 +341,7 @@ fn main() {
                 let normal = obj.tris[j].normal();
                 let c = obj.tris[j].center();
                 if normal.dot_product(c) >= 0.0{
-                    let draw = i >= engine.objects.len() || obj.tris[j].trs < 0.0;
+                    let draw = i >= engine.objects.len() || obj.tris[j].trs > 0.0;
                     let v = obj.tris[j];
                     let mut clipped = vec![v];
                     let trs = &mut [Tri3d::empty(), Tri3d::empty()];
