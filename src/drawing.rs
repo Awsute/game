@@ -1,40 +1,29 @@
 extern crate sdl2;
-use sdl2::{render::{WindowCanvas}, pixels::{Color}};
+use sdl2::{render::{WindowCanvas}, pixels::{Color}, surface::{Surface}};
 use std::mem::swap;
-use crate::world::{Engine, look_at, point_at};
-use crate::ops::{clamp};
+use crate::world::{Engine};
 use crate::{Vec3, Tri3d};
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::rect::Point;
 use crate::ColFuncs;
-use crate::light::Light;
 
 pub trait DrawTri{
-    fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color);
-    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, ambient : Color, draw : bool);
+    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d, draw : bool);
 }
 impl DrawTri for WindowCanvas{
+
     #[inline]
-    fn draw_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color){
-        self.polygon(
-            &[p1[0] as i16, p2[0] as i16, p3[0] as i16], 
-            &[p1[1] as i16, p2[1] as i16, p3[1] as i16], 
-            c
-        );
-    }
-    #[inline]
-    fn fill_triangle(&mut self, p1 : [f32;3], p2 : [f32;3], p3 : [f32;3], c : Color){
-        self.filled_polygon(
-            &[p1[0] as i16, p2[0] as i16, p3[0] as i16],
-            &[p1[1] as i16, p2[1] as i16, p3[1] as i16],
-            c
-        );
-        
-    }
-    #[inline]
-    fn textured_triangle(&mut self, p : [[f32;4];3], t : [[f32;3];3], buffer : &[u8], pitch : usize, width : f32, height : f32, engine : &mut Engine, tri_info : Tri3d, ambient : Color, draw : bool){
-        let s = (engine.camera.window_width, engine.camera.window_height);
+    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d, draw : bool){
+        let s = (engine.camera.window_width as i32, engine.camera.window_height as i32);
+        let height = surf.height() as usize;
+        let width = surf.width() as usize;
+        let pitch = surf.pitch() as usize;
+        let buffer = surf.without_lock().unwrap();
+        let p = t.ps;
+        let t = t.uvs;
+
+        let ambient = tri_info.col.blend(engine.ambient);
+
         let mut c1 = p[0];
         let mut c2 = p[1];
         let mut c3 = p[2];
@@ -49,6 +38,7 @@ impl DrawTri for WindowCanvas{
         let mut v2 = tri_info.ps[1];
         let mut v3 = tri_info.ps[2];
 
+        
 
         if c1[1] > c2[1]{
             swap(&mut c1, &mut c2);
@@ -88,9 +78,9 @@ impl DrawTri for WindowCanvas{
 
         
         
-        let dya = (c2[1] - c1[1]).abs() as f32;
-        let dyb = (c3[1] - c1[1]).abs() as f32;
-        let dyc = (c3[1] - c2[1]).abs() as f32;
+        let dya = c2[1] - c1[1];
+        let dyb = c3[1] - c1[1];
+        let dyc = c3[1] - c2[1];
         
         if dya != 0.0{ //point a to point b
             let da = 1.0/dya;
@@ -130,149 +120,135 @@ impl DrawTri for WindowCanvas{
 
 
 
-        if dya != 0.0 || dyc != 0.0{           
-            for y in c1[1] as i32+1..c3[1] as i32+1{
-                if y > 0 && y < s.1 as i32{
-                    let mut tex_su : f32;
-                    let mut tex_sv : f32;
-                    let mut tex_sw : f32;
+        for y in c1[1] as i32+1..c3[1] as i32+1{
+            if y > 0 && y < s.1 as i32{
+                let mut tex_s : [f32;3];
+                
+                let mut tex_e : [f32;3];
+                
+                let mut point_s : [f32;4];
+                let mut point_e : [f32;4];
+
+                let mut ax : i32;
+                let mut bx : i32;
+
+                let mut ls : [f32;4];
+                let mut le : [f32;4];
+                let ys1 = y as f32-c1[1];
+                let ys2 = y as f32-c2[1];
+                if y < c2[1] as i32+1 {
+                    ax = (c1[0] + (ys1) * dax_step) as i32;
+                    bx = (c1[0] + (ys1) * dbx_step) as i32;
+
+                    tex_s = [
+                        i1[0] + (ys1) * du1_step,
+                        i1[1] + (ys1) * dv1_step,
+                        i1[2] + (ys1) * dw1_step
+                    ];
                     
-                    let mut tex_eu : f32;
-                    let mut tex_ev : f32;
-                    let mut tex_ew : f32;
+                    tex_e = [
+                        i1[0] + (ys1) * du2_step,
+                        i1[1] + (ys1) * dv2_step,
+                        i1[2] + (ys1) * dw2_step
+                    ];
                     
-                    let mut point_s : [f32;4];
-                    let mut point_e : [f32;4];
 
-                    let mut ax : i32;
-                    let mut bx : i32;
+                    ls = l1.add(la_step.scale_c(ys1));
+                    le = l1.add(lb_step.scale_c(ys1));
 
-                    let mut ls : [f32;4];
-                    let mut le : [f32;4];
-                    let ys1 = y as f32-c1[1];
-                    let ys2 = y as f32-c2[1];
-                    if y < c2[1] as i32+1 {
-                        ax = (c1[0] + (ys1) * dax_step) as i32;
-                        bx = (c1[0] + (ys1) * dbx_step) as i32;
+                    point_s = v1.add(dav_step.scale_c(ys1));
+                    point_e = v1.add(dbv_step.scale_c(ys1));
 
-                        tex_su = i1[0] + (ys1) * du1_step;
-                        tex_sv = i1[1] + (ys1) * dv1_step;
-                        tex_sw = i1[2] + (ys1) * dw1_step;
+
+                } else {
+                    ax = (c2[0] + (ys2) * dcx_step) as i32;
+                    bx = (c1[0] + (ys1) * dbx_step) as i32;
+
+                    tex_s = [
+                        i2[0] + (ys2) * du3_step,
+                        i2[1] + (ys2) * dv3_step,
+                        i2[2] + (ys2) * dw3_step
+                    ];
+                    
+                    tex_e = [
+                        i1[0] + (ys1) * du2_step,
+                        i1[1] + (ys1) * dv2_step,
+                        i1[2] + (ys1) * dw2_step
+                    ];
+                    
+
+                    ls = l2.add(lc_step.scale_c(ys2));
+                    le = l1.add(lb_step.scale_c(ys1));
+
+                    point_s = v2.add(dcv_step.scale_c(ys2));
+                    point_e = v1.add(dbv_step.scale_c(ys1));
+
+                }
+                if ax > bx{
+                    swap(&mut ax, &mut bx);
+                    swap(&mut tex_s, &mut tex_e);
+                    swap(&mut ls, &mut le);
+                    swap(&mut point_s, &mut point_e);
+                }
+                let tstep = 1.0/(bx - ax) as f32;
+                
+                for x in ax..bx{
+                    if x > 0 && x < s.0{
                         
-                        tex_eu = i1[0] + (ys1) * du2_step;
-                        tex_ev = i1[1] + (ys1) * dv2_step;
-                        tex_ew = i1[2] + (ys1) * dw2_step;
+                        let t = (x-ax) as f32*tstep;
+                        let tex_w = (1.0 - t) * tex_s[2] + t * tex_e[2];
+                        let dbi = (x+s.0*y) as usize;
+                        if tex_w >= engine.depth_buffer[dbi] || engine.transparency_buffer[dbi].0 > 0.0{
+                            let tr_buf = engine.transparency_buffer[dbi];
 
-                        ls = l1.add(la_step.scale_c(ys1));
-                        le = l1.add(lb_step.scale_c(ys1));
-
-                        point_s = v1.add(dav_step.scale_c(ys1));
-                        point_e = v1.add(dbv_step.scale_c(ys1));
-
-
-                    } else {
-                        ax = (c2[0] + (ys2) * dcx_step) as i32;
-                        bx = (c1[0] + (ys1) * dbx_step) as i32;
-
-                        tex_su = i2[0] + (ys2) * du3_step;
-                        tex_sv = i2[1] + (ys2) * dv3_step;
-                        tex_sw = i2[2] + (ys2) * dw3_step;
-                        
-                        tex_eu = i1[0] + (ys1) * du2_step;
-                        tex_ev = i1[1] + (ys1) * dv2_step;
-                        tex_ew = i1[2] + (ys1) * dw2_step;
-                        
-
-                        ls = l2.add(lc_step.scale_c(ys2));
-                        le = l1.add(lb_step.scale_c(ys1));
-
-                        point_s = v2.add(dcv_step.scale_c(ys2));
-                        point_e = v1.add(dbv_step.scale_c(ys1));
-
-                    }
-                    if ax > bx{
-                        swap(&mut ax, &mut bx);
-                        swap(&mut tex_su, &mut tex_eu);
-                        swap(&mut tex_sv, &mut tex_ev);
-                        swap(&mut tex_sw, &mut tex_ew);
-                        swap(&mut ls, &mut le);
-                        swap(&mut point_s, &mut point_e);
-                    }
-                    let tstep = 1.0/(bx - ax) as f32;
-                    for x in ax..bx{
-                        if x > 0 && x < s.0 as i32{
+                            let ind = (pitch/width) * ((width as f32-0.1) * ((1.0 - t) * tex_s[0] + t * tex_e[0])/tex_w) as usize + pitch * ((height as f32-0.1) * ((1.0 - t) * tex_s[1] + t * tex_e[1])/tex_w) as usize;
                             
-                            let t = (x-ax) as f32*tstep;
-                            let tex_w = (1.0 - t) * tex_sw + t * tex_ew;
-                            let dbi = (x+s.0 as i32*y) as usize;
-                            if tex_w >= engine.depth_buffer[dbi] || engine.transparency_buffer[dbi].0 > 0.0{
-                                let tr_buf = engine.transparency_buffer[dbi];
-
-                                let ind = (pitch/width as usize) * ((width-0.1) * ((1.0 - t) * tex_su + t * tex_eu)/tex_w) as usize + pitch * ((height-0.1) * ((1.0 - t) * tex_sv + t * tex_ev)/tex_w) as usize;
+                            //note: col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
+                            
+                            let col = if ind < buffer.len()-2{
                                 let norm = ls.scale_c(1.0-t).add(le.scale_c(t)).normalize();
                                 let point = point_s.scale_c(1.0-t).add(point_e.scale_c(t)).scale_c(1.0/tex_w);
+                                
+                                let mut add_col = Color::BLACK;
+                                for light in &engine.lights{
+                                    let dp = norm.dot_product(light.dir.negative());
 
-
-                                //let c = (dp.powi(5)*255.0) as u8;
-
-                                
-                                
-                                //note: col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
-                                
-                                
-                                
-                                let col = if ind < buffer.len()-2{
+                                    let r = norm.scale_c(2.0*dp).add(light.dir).normalize().dot_product(point.negative().add(engine.camera.pos).normalize())*tri_info.rfl;
                                     
-                                    let mut add_col = Color::WHITE;
-                                    for light in &engine.lights{
-                                        let dp = norm.dot_product(light.dir.negative().normalize());
-                                        let cos_theta = clamp(dp, 0.0, 1.0);
-                                        
-                                        let c_cos_theta = (cos_theta*255.0) as u8;
-                                        
-                                        let r = norm.scale_c(2.0*(dp)).subtract(light.dir.negative()).normalize().dot_product(engine.camera.dir.negative());
-                                        let r = clamp(r, 0.0, 1.0)*tri_info.rfl;
-                                        let g = light.is_lit(point, norm);
-                                        let shadow_c = (g*255.0) as u8;
-                                        
-                                        let diff = tri_info.col.blend(Color::RGB(c_cos_theta, c_cos_theta, c_cos_theta));
-                                        let specr = (r.powi(5)*255.0) as u8;
-                                        let spec_r = Color::RGB(specr, specr, specr);
-                                        let modif = spec_r.avg(diff);
-                                        
-                                        let shadow = Color::RGB(shadow_c, shadow_c, shadow_c);
-                                        add_col = add_col.blend(modif.blend(shadow).blend(light.col))
-                                    }
+                                    let g = light.is_lit(point, norm);
                                     
-                                    let pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).blend(add_col);
-
-                                    let col = if tr_buf.0 > 0.0{
-                                        tr_buf.1.scale(tr_buf.0).add(pot_col.scale(1.0-tr_buf.0))
-                                    } else {
-                                        pot_col
-                                    };
-                                    col.avg(ambient)
-
-                                } else {
-                                    Color::WHITE
-                                };
-
-                                
-                                if draw{
-                                    self.set_draw_color(col);
-                                    self.draw_point(
-                                        Point::new(x, y)
-                                    );
-                                } else if tex_w > engine.depth_buffer[dbi]{
-                                    engine.depth_buffer[dbi] = tex_w;
-                                    engine.transparency_buffer[dbi] = (tri_info.trs, col.avg(tr_buf.1))
+                                    let diff = tri_info.col.blend(Color::from_f32_greyscale(dp));
+                                    let modif = Color::from_f32_greyscale(r.powi(5)).avg(diff);
+                                    
+                                    let shadow = Color::from_f32_greyscale(g);
+                                    add_col = add_col.add(modif.blend(shadow).blend(light.col));
                                 }
                                 
+                                let pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).avg(ambient).avg(add_col);
+                                if tr_buf.0 > 0.0{
+                                    tr_buf.1.scale(tr_buf.0).add(pot_col.scale(1.0-tr_buf.0))
+                                } else {
+                                    pot_col
+                                }
+                            } else {
+                                ambient
+                            };
+
+                            if draw{
+                                self.set_draw_color(col);
+                                self.draw_point(
+                                    Point::new(x, y)
+                                );
+                            } else if tex_w > engine.depth_buffer[dbi]{
+                                engine.depth_buffer[dbi] = tex_w;
+                                engine.transparency_buffer[dbi] = (tri_info.trs, col.avg(tr_buf.1))
                             }
+                            
                         }
                     }
                 }
             }
-        }   
+        }
+          
     }  
 }

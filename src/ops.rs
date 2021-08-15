@@ -15,47 +15,47 @@ pub trait Vec3{
 }
 impl Vec3 for [f32;4]{
     fn scale(&self, scalar : [f32;4])->[f32;4]{
-        return [self[0]*scalar[0], self[1]*scalar[1], self[2]*scalar[2], self[3]];
+        [self[0]*scalar[0], self[1]*scalar[1], self[2]*scalar[2], self[3]]
     }
     fn scale_c(&self, scalar : f32)->Self{
-        return [self[0]*scalar, self[1]*scalar, self[2]*scalar, 1.0];
+        [self[0]*scalar, self[1]*scalar, self[2]*scalar, 1.0]
     }
     fn add(&self, a : [f32;4])->[f32;4]{
-        return [self[0]+a[0], self[1]+a[1], self[2]+a[2], self[3]];
+        [self[0]+a[0], self[1]+a[1], self[2]+a[2], self[3]]
     }
     fn subtract(&self, a : [f32;4])->[f32;4]{
-        return [self[0]-a[0], self[1]-a[1], self[2]-a[2], self[3]];
+        [self[0]-a[0], self[1]-a[1], self[2]-a[2], self[3]]
     }
     fn magnitude(&self)->f32{
-        return (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).sqrt();
+        (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).sqrt()
     }
     fn normalize(&self)->[f32;4]{
         let m = self.magnitude();
-        return [self[0]/m, self[1]/m, self[2]/m, self[3]];
+        [self[0]/m, self[1]/m, self[2]/m, self[3]]
     }
     fn negative(&self)->[f32;4]{
-        return [-self[0], -self[1], -self[2], 1.0];
+        [-self[0], -self[1], -self[2], 1.0]
     }
     fn cross_product(&self, c: [f32;4])->[f32;4]{
-        return [-self[1]*c[2] + c[1]*self[2], -self[2]*c[0] + c[2]*self[0], -self[0]*c[1] + c[0]*self[1], 1.0];
+        [-self[1]*c[2] + c[1]*self[2], -self[2]*c[0] + c[2]*self[0], -self[0]*c[1] + c[0]*self[1], 1.0]
     }
     fn dot_product(&self, d: Self)->f32{
-        return self[0]*d[0] + self[1]*d[1] + self[2]*d[2];
+        self[0]*d[0] + self[1]*d[1] + self[2]*d[2]
     }
     fn multiply_mat(&self, m : [[f32;4];4])->[f32;4]{
-        return [
+        [
             self[0] * m[0][0] + self[1] * m[1][0] + self[2] * m[2][0] + self[3] * m[3][0],
             self[0] * m[0][1] + self[1] * m[1][1] + self[2] * m[2][1] + self[3] * m[3][1],
             self[0] * m[0][2] + self[1] * m[1][2] + self[2] * m[2][2] + self[3] * m[3][2],
             self[0] * m[0][3] + self[1] * m[1][3] + self[2] * m[2][3] + self[3] * m[3][3]
-        ];
+        ]
     }
 
     fn rot(&self, r:[f32;4])->Self{
-        return self
+        self
             .multiply_mat(Engine::z_rot(r[2]))
             .multiply_mat(Engine::y_rot(r[1]))
-            .multiply_mat(Engine::x_rot(r[0]));
+            .multiply_mat(Engine::x_rot(r[0]))
     }
 
 }
@@ -72,10 +72,10 @@ pub struct Tri3d{
 }
 impl Tri3d{
     pub fn new(ps:[[f32;4];3], uvs:[[f32;3];3], ns:[[f32;4];3], col:Color, rfl : f32, trs : f32)->Self{
-        return Self{ps, uvs, ns, col, rfl, trs};
+        Self{ps, uvs, ns, col, rfl, trs}
     }
     pub fn empty()->Self{
-        return Tri3d{
+        Tri3d{
             ps:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]],
             uvs:[[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]],
             ns:[[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0],[0.0, 0.0, 0.0, 1.0]],
@@ -85,19 +85,19 @@ impl Tri3d{
         }
     }
     pub fn normal(&self)->[f32;4]{
-        return self.ps[2].subtract(self.ps[0]).cross_product(self.ps[1].subtract(self.ps[0])).normalize();//sheeeesh
+        self.ps[2].subtract(self.ps[0]).cross_product(self.ps[1].subtract(self.ps[0])).normalize()//sheeeesh
     }
     pub fn translate(&self, t : [f32;4])->Self{
-        return Self::new([self.ps[0].add(t), self.ps[1].add(t), self.ps[2].add(t)], self.uvs, self.ns, self.col, self.rfl, self.trs);
+        Self::new([self.ps[0].add(t), self.ps[1].add(t), self.ps[2].add(t)], self.uvs, self.ns, self.col, self.rfl, self.trs)
     }
     pub fn scale(&self, t : [f32;4])->Self{
-        return Self::new([self.ps[0].scale(t), self.ps[1].scale(t), self.ps[2].scale(t)], self.uvs, self.ns, self.col, self.rfl, self.trs);
+        Self::new([self.ps[0].scale(t), self.ps[1].scale(t), self.ps[2].scale(t)], self.uvs, self.ns, self.col, self.rfl, self.trs)
     }
     pub fn center(&self)->[f32;4]{
-        return self.ps[0].add(self.ps[1]).add(self.ps[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
+        self.ps[0].add(self.ps[1]).add(self.ps[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
     }
     pub fn multiply_mat(&self, m:[[f32;4];4])->Self{
-        return Self::new(
+        Self::new(
             [
                 self.ps[0].multiply_mat(m),
                 self.ps[1].multiply_mat(m),
@@ -112,7 +112,7 @@ impl Tri3d{
             self.col,
             self.rfl,
             self.trs
-        );
+        )
     }
     pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4], center : [f32;4])->Self{
         let mut t = *self;
@@ -132,9 +132,7 @@ impl Tri3d{
             }
             t = t.translate(rot_point);
         }
-        t = t.translate(trans);
-
-        return t;
+        t.translate(trans)
     }
 }
 
@@ -144,7 +142,7 @@ pub trait operations4x4{
 }
 impl operations4x4 for [[f32;4];4]{
     fn multiply(self, mat : Self)->Self{
-        return [
+        [
             [
                 self[0][0]*mat[0][0] + self[0][1]*mat[1][0] + self[0][2]*mat[2][0] + self[0][3]*mat[3][0], 
                 self[0][0]*mat[0][1] + self[0][1]*mat[1][1] + self[0][2]*mat[2][1] + self[0][3]*mat[3][1], 
@@ -176,21 +174,21 @@ impl operations4x4 for [[f32;4];4]{
     }
 }
 pub fn max(n1:f32, n2:f32)->f32{
-    return if n1>n2{
+    if n1>n2{
         n1
     } else{
         n2
     }
 }
 pub fn min(n1:f32, n2:f32)->f32{
-    return if n1<n2{
+    if n1<n2{
         n1
     } else{
         n2
     }
 }
 pub fn clamp(val:f32, min_val:f32, max_val:f32)->f32{
-    return if val > max_val{
+    if val > max_val{
         max_val
     } else if val < min_val{
         min_val

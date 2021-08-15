@@ -6,7 +6,6 @@ use crate::Tri3d;
 use sdl2::surface::{Surface, SurfaceRef, SurfaceContext};
 use crate::ops::operations4x4;
 use sdl2::pixels::Color;
-
 #[derive(Copy, Clone)]
 pub struct Camera{
     pub fov : f32,
@@ -25,22 +24,23 @@ pub struct Engine{
     pub objects : Vec<Mesh>,
     pub depth_buffer : Vec<f32>,
     pub transparency_buffer : Vec<(f32, Color)>,
-    pub lights : Vec<crate::light::Light>
+    pub lights : Vec<crate::light::Light>,
+    pub ambient : Color
 }
 pub fn matrix3d_perspective(fov : f32, render_distance : f32, clip_distance : f32, window_width : f32, window_height : f32)->[[f32;4];4]{
     let t = (fov.to_radians()*0.5).tan();
     let zratio = render_distance/(render_distance-clip_distance);
-    return [
+    [
         [-window_height/(t*window_width), 0.0, 0.0, 0.0],
         [0.0, -1.0/t, 0.0, 0.0],
         [0.0, 0.0, zratio, 1.0],
         [0.0, 0.0, -clip_distance*zratio, 0.0]
-    ];
+    ]
 }
 pub fn matrix3d_ortho(r:f32, t:f32, n:f32, f:f32)->[[f32;4];4]{
-    return [
-        [1.0/r, 0.0, 0.0, 0.0],
-        [0.0, 1.0/t, 0.0, 0.0],
+    [
+        [-1.0/r, 0.0, 0.0, 0.0],
+        [0.0, -1.0/t, 0.0, 0.0],
         [0.0, 0.0, 1.0/(f-n), 0.0],
         [0.0, 0.0, 0.0, 1.0]
     ]
@@ -49,28 +49,28 @@ impl Engine{
 
 
     pub fn x_rot(angle : f32)->[[f32;4];4]{
-        return [
+        [
             [1.0, 0.0, 0.0, 0.0],
             [0.0, angle.cos(), angle.sin(), 0.0],
             [0.0, -angle.sin(), angle.cos(), 0.0],
             [0.0, 0.0, 0.0, 1.0]
-        ];
+        ]
     }
     pub fn y_rot(angle : f32)->[[f32;4];4]{
-        return [
+        [
             [angle.cos(), 0.0, -angle.sin(), 0.0],
             [0.0, 1.0, 0.0, 0.0],
             [angle.sin(), 0.0, angle.cos(), 0.0],
             [0.0, 0.0, 0.0, 1.0]
-        ];
+        ]
     }
     pub fn z_rot(angle : f32)->[[f32;4];4]{
-        return [
+        [
             [angle.cos(), -angle.sin(), 0.0, 0.0],
             [angle.sin(), angle.cos(), 0.0, 0.0],
             [0.0, 0.0, 1.0, 0.0],
             [0.0, 0.0, 0.0, 1.0]
-        ];
+        ]
     }
     pub fn sort_objs(&mut self){
         let cpos = self.camera.pos;
@@ -81,15 +81,14 @@ impl Engine{
 }
 pub struct Mesh{
     pub tris : Vec<Tri3d>,
-    pub rot : [f32;4],
     pub vel : [f32;4],
     pub rot_vel : [f32;4],
     pub tex : String,
 }
 
 impl Mesh{
-    pub fn new(tris:Vec<Tri3d>, rot:[f32;4], t_coords : Vec<[[f32;3];3]>, tex : String, col:Color)->Self{
-        return Mesh{tris, rot, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0], tex};
+    pub fn new(tris:Vec<Tri3d>, tex : String)->Self{
+        Mesh{tris, vel : [0.0, 0.0, 0.0, 0.0], rot_vel : [0.0, 0.0, 0.0, 0.0], tex}
     }
     #[inline]
     pub fn center(&self)->[f32;4]{
@@ -98,7 +97,7 @@ impl Mesh{
         for tri in &self.tris{
             c = c.add(tri.center());
         }
-        return c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
+        c.scale([1.0/n, 1.0/n, 1.0/n, 1.0])
     }
 
     pub fn load_obj_file(file_path:String, tex:String, col:Color, rfl:f32, trs:f32)->Self{
@@ -108,12 +107,14 @@ impl Mesh{
         let mut t_n : Vec<[f32;4]> = Vec::new();
         let mut points : Vec<[f32;4]> = Vec::new();
         let mut t_c : Vec<[f32;3]> = Vec::new();
+        let obj_key : [&str; 4] = ["v", "f", "vt", "vn"];
+
         for line in reader.lines() {
             
             let ln = Box::leak(line.unwrap().into_boxed_str());
             let vals : Vec<&str> = ln.split_whitespace().collect();
-            if vals.len() > 0{
-                if vals[0].to_string() == "v".to_string() {
+            if !vals.is_empty(){
+                if *vals[0] == *obj_key[0] {
                     points.push(
                         [
                             vals[1].parse::<f32>().unwrap(),
@@ -122,10 +123,10 @@ impl Mesh{
                             1.0
                         ]
                     );
-                } else if vals[0].to_string() == "f".to_string() {
-                    let p1 : Vec<&str> = vals[1].split("/").collect();
-                    let p2 : Vec<&str> = vals[2].split("/").collect();
-                    let p3 : Vec<&str> = vals[3].split("/").collect();
+                } else if *vals[0] == *obj_key[1] {
+                    let p1 : Vec<&str> = vals[1].split('/').collect();
+                    let p2 : Vec<&str> = vals[2].split('/').collect();
+                    let p3 : Vec<&str> = vals[3].split('/').collect();
                     if p1.len() == 2{
 
                         
@@ -199,7 +200,7 @@ impl Mesh{
                             )
                         );
                     }
-                } else if vals[0].to_string() == "vt".to_string(){
+                } else if *vals[0] == *obj_key[2]{
                     t_c.push(
                         [
                             1.0-vals[1].parse::<f32>().unwrap(), 
@@ -207,7 +208,7 @@ impl Mesh{
                             1.0
                         ]
                     );
-                } else if vals[0].to_string() == "vn".to_string(){
+                } else if *vals[0] == *obj_key[3]{
                     t_n.push(
                         [
                             vals[1].parse::<f32>().unwrap(), 
@@ -219,21 +220,21 @@ impl Mesh{
                 }
             }
         }
-        return Mesh{tris:ts, rot:[0.0, 0.0, 0.0, 0.0], vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0], tex};
+        Mesh{tris:ts, vel:[0.0, 0.0, 0.0, 0.0], rot_vel:[0.0, 0.0, 0.0, 0.0], tex}
     }
     pub fn translate(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.translate(t));
         }
-        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        Mesh{tris:s, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()}
     }
     pub fn scale(&self, t : [f32;4])->Self{
         let mut s = Vec::new();
         for i in &self.tris{
             s.push(i.scale(t));
         }
-        return Mesh{tris:s, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        Mesh{tris:s, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()}
     }
     pub fn rotate_point(&self, deg : [f32;4], point : [f32;4])->Self{
         let mut ts = Vec::new();
@@ -250,22 +251,24 @@ impl Mesh{
             }
             ts[i] = ts[i].translate(point);
         }
-        return Mesh{tris:ts, rot:self.rot.add(deg), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        Mesh{tris:ts, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()}
     }
     #[inline]
     pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4])->Self{
         let center = self.center();
         
-        let ts = self.tris.iter().map(|&i|{
-            return i.upd(scalar, trans, rot, rot_point, center);
-        }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot.add(rot), vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        let mut ts = vec![];
+        for i in &self.tris{
+            ts.push(i.upd(scalar, trans, rot, rot_point, center))
+        };
+        Mesh{tris:ts, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()}
     }
     pub fn multiply_mat(&self, mat:[[f32;4];4])->Self{
-        let ts = self.tris.iter().map(|&i|{
-            return i.multiply_mat(mat)
-        }).collect::<Vec<Tri3d>>();
-        return Mesh{tris:ts, rot:self.rot, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()};
+        let mut ts = vec![];
+        for i in &self.tris{
+            ts.push(i.multiply_mat(mat));
+        };
+        Mesh{tris:ts, vel:self.vel, rot_vel:self.rot_vel, tex:self.tex.as_str().to_string()}
     }
 
 }
@@ -279,12 +282,12 @@ pub fn point_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
     
     let right = up.cross_product(forward).normalize();
     
-    return [
+    [
         [right[0], right[1], right[2], 0.0],
         [up[0], up[1], up[2], 0.0],
         [forward[0], forward[1], forward[2], 0.0],
         [pos[0], pos[1], pos[2], 1.0]
-    ];
+    ]
 }
 fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
 //    mat4x4 matrix;
@@ -296,7 +299,7 @@ fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
 //    matrix.m[3][2] = -(m.m[3][0] * matrix.m[0][2] + m.m[3][1] * matrix.m[1][2] + m.m[3][2] * matrix.m[2][2]);
 //    matrix.m[3][3] = 1.0f;
 //yes i copied olc what are you gonna do abt it
-    return [
+    [
         [m[0][0], m[1][0], m[2][0], 0.0],
         [m[0][1], m[1][1], m[2][1], 0.0],
         [m[0][2], m[1][2], m[2][2], 0.0],
@@ -309,7 +312,7 @@ fn quick_inv(m:[[f32;4];4])->[[f32;4];4]{
     ]
 }
 pub fn look_at(pos : [f32;4], target : [f32;4], up : [f32;4])->[[f32;4];4]{
-    return quick_inv(point_at(pos, target, up));
+    quick_inv(point_at(pos, target, up))
 }
 pub fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4], line_e : [f32;4])->([f32;4], f32){
     let plane_n = plane_n.normalize();
@@ -317,14 +320,14 @@ pub fn vec_intersect_plane(plane_p : [f32;4], plane_n : [f32;4], line_s : [f32;4
     let ad = line_s.dot_product(plane_n);
     let bd = line_e.dot_product(plane_n);
     let t = (-plane_d-ad)/(bd-ad);
-    return (line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0])), t);
+    (line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0])), t)
 }
 
 pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris : &mut [Tri3d;2]) -> usize{
     let plane_n = plane_n.normalize();
 
     let dist = |p : [f32;4]|->f32{
-        return p.dot_product(plane_n)-plane_n.dot_product(plane_p)
+        p.dot_product(plane_n)-plane_n.dot_product(plane_p)
     };
     let mut in_points = Vec::new();
     let mut out_points = Vec::new();
@@ -371,9 +374,9 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
 
     if in_points.len() == 3{
         out_tris[0] = in_tri;
-        return 1;
-    } else if in_points.len() == 0 {
-        return 0;
+        return 1
+    } else if in_points.is_empty() {
+        return 0
     } else if in_points.len() == 1{
         out_tris[0] = in_tri;
         
@@ -405,7 +408,7 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
         out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
         out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
         
-        return 1;
+        return 1
     } else if in_points.len() == 2{
         out_tris[0] = in_tri;
         out_tris[1] = in_tri;
@@ -451,9 +454,10 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
         out_tris[1].ns[1] = out_tris[0].ns[2];
         out_tris[1].ns[2] = out_ns[0].subtract(in_ns[1]).scale_c(tab).add(in_ns[1]);
 
-        return 2;
+        return 2
     }
-    return 0;
+    0
+    
 }
 //VERY SLOW AND SHOULD ONLY BE USED ONCE PER OBJECT
 pub fn estimate_normals(mesh:&mut Mesh){
@@ -469,7 +473,7 @@ pub fn estimate_normals(mesh:&mut Mesh){
                     let mut c = false;
                     for j1 in 0..3{
                         let point1 = tri1.ps[j1];
-                        if point[0] == point1[0] && point[1] == point1[1] && point[2] == point1[2]{
+                        if (point[0] - point1[0]).abs() < f32::EPSILON && (point[1] - point1[1]).abs() < f32::EPSILON && (point[2] - point1[2]).abs() < f32::EPSILON{
                             
                             c = true;
                         }
@@ -486,21 +490,21 @@ pub fn estimate_normals(mesh:&mut Mesh){
 }
 
 pub const POISSON_DISK : [[f32;2];16] = [
-    [-0.94201624, -0.39906216 ], 
-    [0.94558609, -0.76890725 ], 
-    [-0.094184101, -0.92938870 ], 
-    [0.34495938, 0.29387760 ], 
-    [-0.91588581, 0.45771432 ], 
-    [-0.81544232, -0.87912464 ], 
-    [-0.38277543, 0.27676845 ], 
-    [0.97484398, 0.75648379 ], 
-    [0.44323325, -0.97511554 ], 
-    [0.53742981, -0.47373420 ], 
-    [-0.26496911, -0.41893023 ], 
-    [0.79197514, 0.19090188 ], 
-    [-0.24188840, 0.99706507 ], 
-    [-0.81409955, 0.91437590 ], 
-    [0.19984126, 0.78641367 ], 
-    [0.14383161, -0.14100790 ] 
+    [-0.942_016, -0.399_062 ], 
+    [0.945_586, -0.768_907 ], 
+    [-0.094_184, -0.929_388 ], 
+    [0.344_959, 0.293_877 ], 
+    [-0.915_885, 0.457_714 ], 
+    [-0.815_442, -0.879_124 ], 
+    [-0.382_775, 0.276_768 ], 
+    [0.974_843, 0.756_483 ], 
+    [0.443_233, -0.975_115 ], 
+    [0.537_429, -0.473_734 ], 
+    [-0.264_969, -0.418_930 ], 
+    [0.791_975, 0.190_901 ], 
+    [-0.241_888, 0.997_065 ], 
+    [-0.814_099, 0.914_375 ], 
+    [0.199_841, 0.786_413 ], 
+    [0.143_831, -0.141_007 ]
 ];
 
