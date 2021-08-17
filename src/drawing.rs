@@ -8,12 +8,12 @@ use sdl2::rect::Point;
 use crate::ColFuncs;
 
 pub trait DrawTri{
-    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d, draw : bool);
+    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d);
 }
 impl DrawTri for WindowCanvas{
 
     #[inline]
-    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d, draw : bool){
+    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d){
         let s = (engine.camera.window_width as i32, engine.camera.window_height as i32);
         let height = surf.height() as usize;
         let width = surf.width() as usize;
@@ -224,9 +224,13 @@ impl DrawTri for WindowCanvas{
                                     add_col = add_col.add(modif.blend(shadow).blend(light.col));
                                 }
                                 
+                                
                                 let pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).avg(ambient).avg(add_col);
-                                if tr_buf.0 > 0.0{
-                                    tr_buf.1.scale(tr_buf.0).add(pot_col.scale(1.0-tr_buf.0))
+                                
+                                if tex_w < engine.depth_buffer[dbi] && tr_buf.0 < 1.0{
+                                    tr_buf.1.scale(1.0-tr_buf.0).add(pot_col.scale(tr_buf.0))
+                                } else if tex_w >= engine.depth_buffer[dbi] && tri_info.trs > 0.0{
+                                    tr_buf.1.scale(tri_info.trs).add(pot_col.scale(1.0-tri_info.trs))
                                 } else {
                                     pot_col
                                 }
@@ -234,14 +238,15 @@ impl DrawTri for WindowCanvas{
                                 ambient
                             };
 
-                            if draw{
-                                self.set_draw_color(col);
-                                self.draw_point(
-                                    Point::new(x, y)
-                                );
-                            } else if tex_w > engine.depth_buffer[dbi]{
+                            self.set_draw_color(col);
+                            self.draw_point(
+                                Point::new(x, y)
+                            );
+                            if tex_w >= engine.depth_buffer[dbi]{
                                 engine.depth_buffer[dbi] = tex_w;
-                                engine.transparency_buffer[dbi] = (tri_info.trs, col.avg(tr_buf.1))
+                                
+                                engine.transparency_buffer[dbi].0 = -crate::ops::clamp(1.0-tr_buf.0-tri_info.trs, -1.0, 0.0);
+                                engine.transparency_buffer[dbi].1 = col;
                             }
                             
                         }

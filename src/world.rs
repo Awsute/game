@@ -74,7 +74,7 @@ impl Engine{
     }
     pub fn sort_objs(&mut self){
         let cpos = self.camera.pos;
-        self.objects.sort_by(|a, b| b.center().subtract(cpos).magnitude().partial_cmp(&a.center().subtract(cpos).magnitude()).unwrap())
+        self.objects.sort_by(|a, b| a.center().subtract(cpos).magnitude().partial_cmp(&b.center().subtract(cpos).magnitude()).unwrap())
 
     }
 

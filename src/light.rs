@@ -5,7 +5,7 @@ use crate::world::{Engine, look_at, point_at, POISSON_DISK};
 use crate::ops::{Tri3d, Vec3, operations4x4, clamp};
 use std::mem::swap;
 
-pub const SHADOW_RESOLUTION : (usize, usize) = (2048, 2048);
+pub const SHADOW_RESOLUTION : (usize, usize) = (1024, 1024);
 pub const SPREAD_VAL : f32 = 1.0;
 
 
