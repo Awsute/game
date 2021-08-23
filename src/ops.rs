@@ -31,7 +31,11 @@ impl Vec3 for [f32;4]{
     }
     fn normalize(&self)->[f32;4]{
         let m = self.magnitude();
-        [self[0]/m, self[1]/m, self[2]/m, self[3]]
+        if m != 0.0{
+            [self[0]/m, self[1]/m, self[2]/m, self[3]]
+        } else {
+            [0.0, 0.0, 0.0, 1.0]
+        }
     }
     fn negative(&self)->[f32;4]{
         [-self[0], -self[1], -self[2], 1.0]
@@ -96,23 +100,24 @@ impl Tri3d{
     pub fn center(&self)->[f32;4]{
         self.ps[0].add(self.ps[1]).add(self.ps[2]).scale([1.0/3.0, 1.0/3.0, 1.0/3.0, 1.0])
     }
+    #[inline]
     pub fn multiply_mat(&self, m:[[f32;4];4])->Self{
-        Self::new(
-            [
+        Self{
+            ps:[
                 self.ps[0].multiply_mat(m),
                 self.ps[1].multiply_mat(m),
                 self.ps[2].multiply_mat(m)
             ],
-            self.uvs,
-            [
+            uvs:self.uvs,
+            ns:[
                 self.ns[0].multiply_mat(m),
                 self.ns[1].multiply_mat(m),
                 self.ns[2].multiply_mat(m)
             ],
-            self.col,
-            self.rfl,
-            self.trs
-        )
+            col:self.col,
+            rfl:self.rfl,
+            trs:self.trs
+        }
     }
     pub fn upd(&self, scalar : [f32;4], trans : [f32;4], rot : [f32;4], rot_point : [f32;4], center : [f32;4])->Self{
         let mut t = *self;

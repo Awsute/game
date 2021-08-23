@@ -4,32 +4,31 @@ use std::mem::swap;
 use crate::world::{Engine};
 use crate::{Vec3, Tri3d};
 use sdl2::gfx::primitives::DrawRenderer;
-use sdl2::rect::Point;
 use crate::ColFuncs;
 
 pub trait DrawTri{
-    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d);
+    fn textured_triangle(&mut self, tri : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d);
 }
 impl DrawTri for WindowCanvas{
 
     #[inline]
-    fn textured_triangle(&mut self, t : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d){
+    fn textured_triangle(&mut self, tri : Tri3d, surf : &Surface, engine : &mut Engine, tri_info : Tri3d){
         let s = (engine.camera.window_width as i32, engine.camera.window_height as i32);
         let height = surf.height() as usize;
         let width = surf.width() as usize;
         let pitch = surf.pitch() as usize;
         let buffer = surf.without_lock().unwrap();
-        let p = t.ps;
-        let t = t.uvs;
+        let ps = tri.ps;
+        let uvs = tri.uvs;
 
         let ambient = tri_info.col.blend(engine.ambient);
 
-        let mut c1 = p[0];
-        let mut c2 = p[1];
-        let mut c3 = p[2];
-        let mut i1 = t[0]; 
-        let mut i2 = t[1]; 
-        let mut i3 = t[2];
+        let mut c1 = ps[0];
+        let mut c2 = ps[1];
+        let mut c3 = ps[2];
+        let mut i1 = uvs[0]; 
+        let mut i2 = uvs[1]; 
+        let mut i3 = uvs[2];
         let mut l1 = tri_info.ns[0];
         let mut l2 = tri_info.ns[1];
         let mut l3 = tri_info.ns[2];
@@ -121,7 +120,7 @@ impl DrawTri for WindowCanvas{
 
 
         for y in c1[1] as i32+1..c3[1] as i32+1{
-            if y > 0 && y < s.1 as i32{
+            if y > 0 && y < s.1{
                 let mut tex_s : [f32;3];
                 
                 let mut tex_e : [f32;3];
@@ -200,6 +199,7 @@ impl DrawTri for WindowCanvas{
                         let dbi = (x+s.0*y) as usize;
                         if tex_w >= engine.depth_buffer[dbi] || engine.transparency_buffer[dbi].0 > 0.0{
                             let tr_buf = engine.transparency_buffer[dbi];
+                            let d_buf = engine.depth_buffer[dbi];
 
                             let ind = (pitch/width) * ((width as f32-0.1) * ((1.0 - t) * tex_s[0] + t * tex_e[0])/tex_w) as usize + pitch * ((height as f32-0.1) * ((1.0 - t) * tex_s[1] + t * tex_e[1])/tex_w) as usize;
                             
@@ -227,9 +227,9 @@ impl DrawTri for WindowCanvas{
                                 
                                 let pot_col = Color::RGB(buffer[ind], buffer[ind+1], buffer[ind+2]).avg(ambient).avg(add_col);
                                 
-                                if tex_w < engine.depth_buffer[dbi] && tr_buf.0 < 1.0{
+                                if tex_w < d_buf && tr_buf.0 > 0.0{
                                     tr_buf.1.scale(1.0-tr_buf.0).add(pot_col.scale(tr_buf.0))
-                                } else if tex_w >= engine.depth_buffer[dbi] && tri_info.trs > 0.0{
+                                } else if tex_w >= d_buf && tri_info.trs > 0.0{
                                     tr_buf.1.scale(tri_info.trs).add(pot_col.scale(1.0-tri_info.trs))
                                 } else {
                                     pot_col
@@ -238,17 +238,17 @@ impl DrawTri for WindowCanvas{
                                 ambient
                             };
 
-                            self.set_draw_color(col);
-                            self.draw_point(
-                                Point::new(x, y)
-                            );
-                            if tex_w >= engine.depth_buffer[dbi]{
+                            if tex_w >= d_buf{
                                 engine.depth_buffer[dbi] = tex_w;
                                 
                                 engine.transparency_buffer[dbi].0 = -crate::ops::clamp(1.0-tr_buf.0-tri_info.trs, -1.0, 0.0);
                                 engine.transparency_buffer[dbi].1 = col;
                             }
-                            
+                            self.pixel(
+                                x as i16,
+                                y as i16,
+                                col
+                            );
                         }
                     }
                 }

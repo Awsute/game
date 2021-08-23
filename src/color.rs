@@ -11,15 +11,15 @@ pub trait ColFuncs{
 impl ColFuncs for Color{
     #[inline]
     fn blend(&self, c:Self)->Self{
-        Color::from(((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8))
+        Color::RGB((self.r as f32*(c.r as f32/255.0)) as u8, (self.g as f32*(c.g as f32/255.0)) as u8, (self.b as f32*(c.b as f32/255.0)) as u8)
     }  
     #[inline]
     fn avg(&self, c:Self)->Self{
-        Color::from((
+        Color::RGB(
             ((self.r as u16 + c.r as u16)/2) as u8, 
             ((self.g as u16 + c.g as u16)/2) as u8, 
             ((self.b as u16 + c.b as u16)/2) as u8,
-        ))
+        )
     }
     #[inline]
     fn scale(&self, s:f32)->Self{
@@ -33,7 +33,8 @@ impl ColFuncs for Color{
     }
 
     fn from_f32_greyscale(f: f32)->Self{
-        Color::WHITE.scale(f)
+        let f = (f*255.0) as u8;
+        Color::RGB(f, f, f)
     }
 
 }

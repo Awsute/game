@@ -5,18 +5,17 @@ use sdl2::pixels;
 use sdl2::image;
 use image::{LoadSurface};
 use pixels::{Color};
+use sdl2::video::{Window};
 use sdl2::render::{WindowCanvas};
 use sdl2::audio::{AudioCallback, AudioSpecWAV, AudioCVT, AudioSpecDesired};
 use sdl2::rect::{Point, Rect};
 use sdl2::surface::{Surface, SurfaceContext, SurfaceRef};
 use std::fs::{File, read_to_string};
 use std::io::{Read, BufReader, BufRead};
-use sdl2::event::{EventType::Window, Event};
+use sdl2::event::{EventType, Event};
 use sdl2::keyboard::{Scancode, Keycode};
-use sdl2::mouse::{MouseButton};
+use sdl2::mouse::{MouseButton, MouseUtil};
 use sdl2::EventPump;
-use sdl2::sys::gfx::primitives::texturedPolygon;
-use std::time::Duration;
 use std::any::{Any, TypeId};
 use std::path::Path;
 use std::borrow::Borrow;
@@ -47,15 +46,15 @@ impl Surf for Surface<'_>{
         let ind = 3*u+self.pitch() as usize*v;
         if ind < buf.len()-2{Color::from((buf[ind], buf[ind+1], buf[ind+2]))} else {Color::BLACK}
     }
-    fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color){
-        let w = self.width();
-        let h = self.height();
-        let p = self.pitch();
+    fn apply_fn(&mut self, func:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color){
+        let width = self.width();
+        let height = self.height();
+        let pitch = self.pitch();
         let colb = self.without_lock_mut().unwrap();
-        for x in 0..w{
-            for y in 0..h{
-                let i = (x*(p/w) + y*p) as usize;
-                let color = f(x, y, w, h, p, Color::from((colb[i], colb[i+1], colb[i+2])));
+        for x in 0..width{
+            for y in 0..height{
+                let i = (x*(pitch/width) + y*pitch) as usize;
+                let color = func(x, y, width, height, pitch, Color::from((colb[i], colb[i+1], colb[i+2])));
                 colb[i] = color.r;
                 colb[i+1] = color.g;
                 colb[i+2] = color.b;
@@ -86,7 +85,7 @@ fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
 
-    let list_id = [0.0, 0.0, 0.0, 0.0];
+    let list_id = [0.0, 0.0, 0.0, 1.0];
     let list_id_sc = [1.0, 1.0, 1.0, 1.0];
 
     let sdl_context = sdl2::init().unwrap();
@@ -94,15 +93,13 @@ fn main() {
     let _audio_subsystem = sdl_context.audio().unwrap();
     let _sdl_image_context = image::init(image::InitFlag::all());
 
-    let mut window = video_subsystem.window("game", 800, 750)
-        .opengl()
+    let window = video_subsystem.window("game", 800, 750)
         .fullscreen_desktop()
         .build()
-        .map_err(|e| e.to_string())
-        .unwrap();
+    .map_err(|e| e.to_string()).unwrap();
 
-    let window_texture : sdl2::surface::Surface = image::LoadSurface::from_file(Path::new("assets/dabebe.png")).unwrap();
-    window.set_icon(window_texture);
+    //let win_id = window.id();
+    
     let mut canvas : WindowCanvas = window
         .into_canvas()
         //.index(find_sdl_gl_driver().unwrap())
@@ -136,8 +133,8 @@ fn main() {
     let mut engine = Engine{
         camera : player_cam,
         objects : Vec::new(),
-        depth_buffer : vec![0.0; (player_cam.window_height*player_cam.window_width) as usize],
-        transparency_buffer : vec![(1.0, Color::WHITE); (player_cam.window_height*player_cam.window_width) as usize],
+        depth_buffer : Vec::new(),
+        transparency_buffer : Vec::new(),
         lights : Vec::new(),
         ambient : Color::GRAY
     };
@@ -186,16 +183,17 @@ fn main() {
     let cam_moved = |camera : &Camera|->bool{
         camera.vel[0] != 0.0 || camera.vel[1] != 0.0 || camera.vel[2] != 0.0 || camera.rot_vel[0] != 0.0 || camera.rot_vel[1] != 0.0 || camera.rot_vel[2] != 0.0
     };
-
-
-
+    
+    let mouse = sdl_context.mouse();
+    mouse.show_cursor(false);
     'running: loop {
+
+
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
         let fps = fps_manager.get_framerate() as f32;
         seconds_passed += 1.0/fps;
-
-
+        engine.camera.rot_vel = [0.0, 0.0, 0.0, 1.0];
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
@@ -242,37 +240,42 @@ fn main() {
                 
                 //--------------ROTATE--------------
                 Event::KeyDown {keycode: Some(Keycode::Up), .. } => {
-                    engine.camera.rot_vel[0] = -rspeed;
+                    engine.camera.rot_vel[0] = 1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::Up), .. } => {
                     engine.camera.rot_vel[0] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Down), .. } => {
-                    engine.camera.rot_vel[0] = rspeed;
+                    engine.camera.rot_vel[0] = -1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::Down), .. } => {
                     engine.camera.rot_vel[0] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Left), .. } => {
-                    engine.camera.rot_vel[1] = -rspeed;
+                    engine.camera.rot_vel[1] = -1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::Left), .. } => {
                     engine.camera.rot_vel[1] = 0.0;
                 },
                 
                 Event::KeyDown {keycode: Some(Keycode::Right), .. } => {
-                    engine.camera.rot_vel[1] = rspeed;
+                    engine.camera.rot_vel[1] = 1.0;
                 }, Event::KeyUp {keycode: Some(Keycode::Right), .. } => {
                     engine.camera.rot_vel[1] = 0.0;
                 },
                 
 
             
+                Event::MouseMotion {x, y, ..} => {
+                    
+                    let win = canvas.window();
+                    let s = canvas.output_size().unwrap();
+                    mouse.warp_mouse_in_window(win, s.0 as i32/2, s.1 as i32/2);
+                    engine.camera.rot_vel[0] = ((s.1 as i32/2-y) as f32).to_radians(); 
+                    engine.camera.rot_vel[1] = ((s.0 as i32/2-x) as f32).to_radians();
 
-
-                //Event::MouseButtonDown{mouse_btn : MouseButton::Right, x, y,..} => {
-                //    engine.camera.rot_vel = engine.camera.rot_vel.add([(y as f32).asin(), (x as f32).asin(), 0.0, 0.0]);
-                //},
-
+                    
+                },
+                
                 _ => {}
             }
         }
@@ -281,63 +284,66 @@ fn main() {
         
         
         //update camera
-        let rvel = engine.camera.rot_vel.scale_c(rspeed/fps);
+        let mut cam = &mut engine.camera;
+        
+        {
+            //rotvel in radians
+            //dir is length
+            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0])+cam.rot_vel[2]*(1.0-cam.dir[2]), cam.rot_vel[1], cam.rot_vel[2]*(1.0-cam.dir[0])-cam.rot_vel[0]*(1.0-cam.dir[2]), 1.0].normalize().scale_c(rspeed/fps);
+            cam.dir = cam.dir
+                .multiply_mat(Engine::z_rot(rvel[2]))
+                .multiply_mat(Engine::y_rot(rvel[1]))
+                .multiply_mat(Engine::x_rot(rvel[0]))
+            .normalize();
 
-        engine.camera.dir = engine.camera.dir
-            .multiply_mat(Engine::z_rot(rvel[2]))
-            .multiply_mat(Engine::y_rot(rvel[1]))
-            .multiply_mat(Engine::x_rot(rvel[0]))
-        .normalize();
-        
-        let cam_fwd = engine.camera.dir;
-        let cam_up = world_up.subtract(engine.camera.dir.scale_c(world_up.dot_product(engine.camera.dir))).normalize();
-        let cam_right = cam_up.cross_product(engine.camera.dir).normalize();
-        
-        let mvel = [
-            engine.camera.vel.dot_product(cam_right), 
-            engine.camera.vel.dot_product(cam_up),
-            engine.camera.vel.dot_product(cam_fwd),
-            1.0
-        ].scale_c(cspeed/fps);
-        engine.camera.pos = engine.camera.pos.add(mvel);
-        let ew = engine.camera.window_width/2.0; let eh = engine.camera.window_height/2.0;
-        
-        let cam_pmat = world::point_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
-        let cam_mat = world::look_at(engine.camera.pos, engine.camera.pos.add(engine.camera.dir), [0.0, 1.0, 0.0, 1.0]);
+            let cam_fwd = cam.dir;
+            let cam_up = world_up.subtract(cam.dir.scale_c(world_up.dot_product(cam.dir))).normalize();
+            let cam_right = cam_up.cross_product(cam.dir).normalize();
+            
+            let mvel = [
+                cam.vel.dot_product(cam_right), 
+                cam.vel.dot_product(cam_up),
+                cam.vel.dot_product(cam_fwd),
+                1.0
+            ].scale_c(cspeed/fps);
+            cam.pos = cam.pos.add(mvel);
+        }
+        let ew = cam.window_width/2.0; let eh = cam.window_height/2.0;
+
+        let cam_pmat = world::point_at(cam.pos, cam.pos.add(cam.dir), world_up);
+        let cam_mat = world::look_at(cam.pos, cam.pos.add(cam.dir), world_up);
         
         //in view space
        
-        let r = engine.camera.fov.to_radians()*(engine.camera.window_height/engine.camera.window_width/2.0);
-        let rsin = r.sin();
+        let aspect = cam.window_height/cam.window_width;
+        let r = cam.fov.to_radians()*0.5/aspect;
         let rcos = r.cos();
+        let rtan = r.tan();
 
         let w_clip = [
-            [[0.0, 0.0, engine.camera.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
-            [[0.0, 0.0, engine.camera.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
-                        
-            [[0.0, 0.0, 0.0, 1.0], [0.0, -rsin, rcos, 1.0]],
-            [[0.0, 0.0, 0.0, 1.0], [0.0, rsin, rcos, 1.0]],
+            [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
+            [[0.0, 0.0, cam.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[0.0, 0.0, 0.0, 1.0], [-rsin, 0.0, rcos, 1.0]],
-            [[0.0, 0.0, 0.0, 1.0], [rsin, 0.0, rcos, 1.0]],
+            [[0.0, 0.5, 0.0, 1.0], [0.0, -1.0/rtan, rcos, 1.0]],
+            [[0.0, -0.5, 0.0, 1.0], [0.0, 1.0/rtan, rcos, 1.0]],
+            
+            [[-0.5, 0.0, 0.0, 1.0], [aspect/rtan, 0.0, rcos, 1.0]],
+            [[0.5, 0.0, 0.0, 1.0], [-aspect/rtan, 0.0, rcos, 1.0]],
 
         ];
-
 
         let off = [1.0, 1.0, 0.0, 0.0];
         let tr = [ew, eh, 1.0, 1.0];
         
         //reset the buffers
-        engine.depth_buffer = vec![0.0; (player_cam.window_height*player_cam.window_width) as usize];
-        engine.transparency_buffer = vec![(1.0, engine.ambient); (player_cam.window_height*player_cam.window_width) as usize];
         for i in 0..engine.lights.len(){
             engine.lights[i].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
         }
         
         
-        //if cam_moved(&engine.camera) || objs_moved(&engine.objects){}
-        //if objs_moved(&engine.objects){}
-
+        engine.depth_buffer = vec![0.0; (cam.window_height*cam.window_width) as usize];
+        engine.transparency_buffer = vec![(1.0, engine.ambient); (cam.window_height*cam.window_width) as usize];
+        
         for i in 0..engine.objects.len(){
             engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/fps), engine.objects[i].rot_vel.scale_c(1.0/fps), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
@@ -350,7 +356,6 @@ fn main() {
             let obj = engine.objects[i].multiply_mat(cam_mat);
             let otex : Surface = LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
             for j in 0..obj.tris.len(){
-
                 let normal = obj.tris[j].normal();
                 if normal.dot_product(obj.tris[j].center()) >= 0.0{
                     let mut clipped = vec![obj.tris[j]];
@@ -386,7 +391,7 @@ fn main() {
                             t.ps[0] = t.ps[0].scale_c(t03).add(off).scale(tr);    
                             t.ps[1] = t.ps[1].scale_c(t13).add(off).scale(tr);
                             t.ps[2] = t.ps[2].scale_c(t23).add(off).scale(tr);
-                            
+                    
                             let mut etri = tri.multiply_mat(cam_pmat);
                             etri.ps[0] = etri.ps[0].scale_c(t03);
                             etri.ps[1] = etri.ps[1].scale_c(t13);
@@ -438,6 +443,8 @@ fn main() {
             &format!("dir: (x: {}, y: {}, z: {})", engine.camera.dir[0], engine.camera.dir[1], engine.camera.dir[2]).to_string(),
             Color::WHITE
         ).unwrap();
+        
         canvas.present();
+
     }
 }

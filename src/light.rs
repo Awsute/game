@@ -26,14 +26,7 @@ impl Light{
         let rw = SHADOW_RESOLUTION.0 as f32*0.5;
         let rh = SHADOW_RESOLUTION.1 as f32*0.5;
         let t = tri.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
-        
-        //if 
-        //    (t.ps[0][0] < -1.0 || t.ps[0][0] > 1.0 || t.ps[0][1] < -1.0 || t.ps[0][1] > 1.0) &&
-        //    (t.ps[1][0] < -1.0 || t.ps[1][0] > 1.0 || t.ps[1][1] < -1.0 || t.ps[1][1] > 1.0) &&
-        //    (t.ps[2][0] < -1.0 || t.ps[2][0] > 1.0 || t.ps[2][1] < -1.0 || t.ps[2][1] > 1.0)
-        //{
-        //    return;
-        //}
+
 
         if tri.normal().dot_product(self.dir) >= 0.0 {
             return;
@@ -94,8 +87,8 @@ impl Light{
         for y in c1[1] as i32+1..c3[1] as i32+1{
             
             if y > 0 && y < SHADOW_RESOLUTION.1 as i32{
-                let mut ax : i32;
-                let mut bx : i32;
+                let mut ax : f32;
+                let mut bx : f32;
                 
                 let mut az : f32;
                 let mut bz : f32;
@@ -105,8 +98,8 @@ impl Light{
                 let ys1 = y as f32-c1[1];
                 let ys2 = y as f32-c2[1];
                 if y < c2[1] as i32+1 {
-                    ax = (c1[0] + (ys1) * dax_step) as i32;
-                    bx = (c1[0] + (ys1) * dbx_step) as i32;
+                    ax = c1[0] + (ys1) * dax_step;
+                    bx = c1[0] + (ys1) * dbx_step;
                     
                     az = c1[2] + (ys1) * daz_step;
                     bz = c1[2] + (ys1) * dbz_step;
@@ -115,8 +108,8 @@ impl Light{
                     bw = c1[3] + (ys1) * dbw_step;
 
                 } else {
-                    ax = (c2[0] + (ys2) * dcx_step) as i32;
-                    bx = (c1[0] + (ys1) * dbx_step) as i32;
+                    ax = c2[0] + (ys2) * dcx_step;
+                    bx = c1[0] + (ys1) * dbx_step;
 
                     az = c2[2] + (ys2) * dcz_step;
                     bz = c1[2] + (ys1) * dbz_step;
@@ -129,12 +122,12 @@ impl Light{
                     swap(&mut az, &mut bz);
                     swap(&mut aw, &mut bw);
                 }
-                let tstep = 1.0/(bx - ax) as f32;
-                for x in ax..bx{
+                let tstep = 1.0/(bx - ax);
+                for x in ax as usize..bx as usize{
                     
-                    if x > 0 && x < SHADOW_RESOLUTION.0 as i32{
+                    if x > 0 && x < SHADOW_RESOLUTION.0{
                         
-                        let t = (x-ax) as f32*tstep;
+                        let t = (x as f32-ax)*tstep;
                         let z = ((1.0 - t) * az + t * bz)*((1.0 - t) * aw + t * bw);
                         let ind = x as usize + SHADOW_RESOLUTION.0 * y as usize;
                         if z < self.buf[ind] && z > 0.0 && z < 1.0{
@@ -155,7 +148,7 @@ impl Light{
         let t = point.multiply_mat(look_at(self.pos, self.pos.add(self.dir), [0.0, 1.0, 0.0, 1.0])).multiply_mat(self.proj_mat);
 
         let t3 = 1.0/(t[3]+1.0);
-        let f = [((t[0]*t3+1.0)*rw), ((t[1]*t3+1.0)*rh)];
+        let f = [(t[0]*t3+1.0)*rw, (t[1]*t3+1.0)*rh];
         let d_val = t[2]*t3;
         if f[0] <= 0.0 || f[0] as usize >= SHADOW_RESOLUTION.0 || f[1] <= 0.0 || f[1] as usize >= SHADOW_RESOLUTION.1{
             return 0.0;

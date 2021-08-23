@@ -6,7 +6,6 @@ use crate::Tri3d;
 use sdl2::surface::{Surface, SurfaceRef, SurfaceContext};
 use crate::ops::operations4x4;
 use sdl2::pixels::Color;
-#[derive(Copy, Clone)]
 pub struct Camera{
     pub fov : f32,
     pub pos : [f32;4],
@@ -408,11 +407,14 @@ pub fn clip_tri(plane_p : [f32;4], plane_n : [f32;4], in_tri : Tri3d, out_tris :
         out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
         out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
         
+        //out_tris[0].col = Color::RED;
         return 1
     } else if in_points.len() == 2{
         out_tris[0] = in_tri;
         out_tris[1] = in_tri;
-
+        
+        //out_tris[0].col = Color::BLUE;
+        //out_tris[1].col = Color::GREEN;
 
 
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
