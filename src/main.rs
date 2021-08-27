@@ -1,5 +1,4 @@
-//when shipping game, make sure you got everything in the folder with the game
-extern crate sdl2;
+//when shipping game, make sure you got everything in the folder with the gameeextern crate sdl2;
 extern crate gl;
 use sdl2::pixels;
 use sdl2::image;
@@ -16,9 +15,7 @@ use sdl2::event::{EventType, Event};
 use sdl2::keyboard::{Scancode, Keycode};
 use sdl2::mouse::{MouseButton, MouseUtil};
 use sdl2::EventPump;
-use std::any::{Any, TypeId};
 use std::path::Path;
-use std::borrow::Borrow;
 use sdl2::gfx::framerate::FPSManager;
 use sdl2::gfx::primitives::DrawRenderer;
 
@@ -98,11 +95,9 @@ fn main() {
         .build()
     .map_err(|e| e.to_string()).unwrap();
 
-    //let win_id = window.id();
     
     let mut canvas : WindowCanvas = window
         .into_canvas()
-        //.index(find_sdl_gl_driver().unwrap())
         .build()
         .map_err(|e| e.to_string())
     .unwrap();
@@ -316,19 +311,20 @@ fn main() {
         //in view space
        
         let aspect = cam.window_height/cam.window_width;
-        let r = cam.fov.to_radians()*0.5/aspect;
+        let r = cam.fov.to_radians()*0.5;
         let rcos = r.cos();
+        let rsin = r.sin();
         let rtan = r.tan();
 
         let w_clip = [
             [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
             [[0.0, 0.0, cam.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[0.0, 0.5, 0.0, 1.0], [0.0, -1.0/rtan, rcos, 1.0]],
-            [[0.0, -0.5, 0.0, 1.0], [0.0, 1.0/rtan, rcos, 1.0]],
+            [[0.0, cam.clip_distance*rsin/aspect+aspect, cam.clip_distance, 1.0], [0.0, -rsin, rcos, 1.0]],
+            [[0.0, -cam.clip_distance*rsin/aspect-aspect, cam.clip_distance, 1.0], [0.0, rsin, rcos, 1.0]],
             
-            [[-0.5, 0.0, 0.0, 1.0], [aspect/rtan, 0.0, rcos, 1.0]],
-            [[0.5, 0.0, 0.0, 1.0], [-aspect/rtan, 0.0, rcos, 1.0]],
+            [[-cam.clip_distance*rsin*aspect-aspect, 0.0, cam.clip_distance, 1.0], [rsin*aspect, 0.0, rcos, 1.0]],
+            [[cam.clip_distance*rsin*aspect+aspect, 0.0, cam.clip_distance, 1.0], [-rsin*aspect, 0.0, rcos, 1.0]],
 
         ];
 
@@ -345,7 +341,7 @@ fn main() {
         engine.transparency_buffer = vec![(1.0, engine.ambient); (cam.window_height*cam.window_width) as usize];
         
         for i in 0..engine.objects.len(){
-            engine.objects[i] = engine.objects[i].upd(list_id_sc, engine.objects[i].vel.scale_c(1.0/fps), engine.objects[i].rot_vel.scale_c(1.0/fps), engine.objects[i].center());
+            engine.objects[i] = engine.objects[i].upd(engine.objects[i].vel.scale_c(1.0/fps), engine.objects[i].rot_vel.scale_c(1.0/fps), engine.objects[i].center());
             for j in 0..engine.objects[i].tris.len(){
                 for o in 0..engine.lights.len(){
                     engine.lights[o].edit_shadow_buffer(engine.objects[i].tris[j]);
@@ -396,7 +392,6 @@ fn main() {
                             etri.ps[0] = etri.ps[0].scale_c(t03);
                             etri.ps[1] = etri.ps[1].scale_c(t13);
                             etri.ps[2] = etri.ps[2].scale_c(t23);
-                            
                             
                             canvas.textured_triangle(
                                 t,
