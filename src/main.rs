@@ -180,7 +180,7 @@ fn main() {
     };
     
     let mouse = sdl_context.mouse();
-    mouse.show_cursor(false);
+    //mouse.show_cursor(false);
     'running: loop {
 
 
@@ -267,7 +267,6 @@ fn main() {
                     mouse.warp_mouse_in_window(win, s.0 as i32/2, s.1 as i32/2);
                     engine.camera.rot_vel[0] = ((s.1 as i32/2-y) as f32).to_radians(); 
                     engine.camera.rot_vel[1] = ((s.0 as i32/2-x) as f32).to_radians();
-
                     
                 },
                 
@@ -283,8 +282,8 @@ fn main() {
         
         {
             //rotvel in radians
-            //dir is length
-            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0])+cam.rot_vel[2]*(1.0-cam.dir[2]), cam.rot_vel[1], cam.rot_vel[2]*(1.0-cam.dir[0])-cam.rot_vel[0]*(1.0-cam.dir[2]), 1.0].normalize().scale_c(rspeed/fps);
+            //dir is direction
+            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0])+cam.rot_vel[2]*(1.0-cam.dir[2]), cam.rot_vel[1], cam.rot_vel[2]*cam.dir[2]-cam.rot_vel[0]*cam.dir[0], 1.0].normalize().scale_c(rspeed/fps);
             cam.dir = cam.dir
                 .multiply_mat(Engine::z_rot(rvel[2]))
                 .multiply_mat(Engine::y_rot(rvel[1]))
@@ -306,7 +305,7 @@ fn main() {
         let ew = cam.window_width/2.0; let eh = cam.window_height/2.0;
 
         let cam_pmat = world::point_at(cam.pos, cam.pos.add(cam.dir), world_up);
-        let cam_mat = world::look_at(cam.pos, cam.pos.add(cam.dir), world_up);
+        let cam_mat = world::quick_inv(cam_pmat);
         
         //in view space
        

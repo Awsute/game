@@ -32,7 +32,7 @@ impl Vec3 for [f32; 4] {
         [self[0] - a[0], self[1] - a[1], self[2] - a[2], self[3]]
     }
     fn magnitude(&self) -> f32 {
-        (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).sqrt()
+        (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).powf(0.5)
     }
     fn normalize(&self) -> [f32; 4] {
         let m = self.magnitude();

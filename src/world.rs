@@ -317,7 +317,7 @@ pub fn point_at(pos: [f32; 4], target: [f32; 4], up: [f32; 4]) -> [[f32; 4]; 4] 
         [pos[0], pos[1], pos[2], 1.0],
     ]
 }
-fn quick_inv(m: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
+pub fn quick_inv(m: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
     //    mat4x4 matrix;
     //    matrix.m[0][0] = m.m[0][0]; matrix.m[0][1] = m.m[1][0]; matrix.m[0][2] = m.m[2][0]; matrix.m[0][3] = 0.0f;
     //    matrix.m[1][0] = m.m[0][1]; matrix.m[1][1] = m.m[1][1]; matrix.m[1][2] = m.m[2][1]; matrix.m[1][3] = 0.0f;
@@ -339,9 +339,7 @@ fn quick_inv(m: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
         ],
     ]
 }
-pub fn look_at(pos: [f32; 4], target: [f32; 4], up: [f32; 4]) -> [[f32; 4]; 4] {
-    quick_inv(point_at(pos, target, up))
-}
+
 pub fn vec_intersect_plane(
     plane_p: [f32; 4],
     plane_n: [f32; 4],

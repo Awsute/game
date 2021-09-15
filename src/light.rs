@@ -1,5 +1,5 @@
 use crate::ops::{clamp, operations4x4, Tri3d, Vec3};
-use crate::world::{look_at, point_at, Engine, POISSON_DISK};
+use crate::world::{quick_inv, point_at, Engine, POISSON_DISK};
 use crate::ColFuncs;
 use sdl2::pixels::Color;
 use sdl2::surface::Surface;
@@ -32,11 +32,11 @@ impl Light {
         let rw = SHADOW_RESOLUTION.0 as f32 * 0.5;
         let rh = SHADOW_RESOLUTION.1 as f32 * 0.5;
         let t = tri
-            .multiply_mat(look_at(
+            .multiply_mat(quick_inv(point_at(
                 self.pos,
                 self.pos.add(self.dir),
                 [0.0, 1.0, 0.0, 1.0],
-            ))
+            )))
             .multiply_mat(self.proj_mat);
 
         if tri.normal().dot_product(self.dir) >= 0.0 {
@@ -128,23 +128,20 @@ impl Light {
                 let ys2 = y as f32 - c2[1];
                 if y < c2[1] as i32 + 1 {
                     ax = c1[0] + (ys1) * dax_step;
-                    bx = c1[0] + (ys1) * dbx_step;
 
                     az = c1[2] + (ys1) * daz_step;
-                    bz = c1[2] + (ys1) * dbz_step;
 
                     aw = c1[3] + (ys1) * daw_step;
-                    bw = c1[3] + (ys1) * dbw_step;
                 } else {
                     ax = c2[0] + (ys2) * dcx_step;
-                    bx = c1[0] + (ys1) * dbx_step;
-
+                    
                     az = c2[2] + (ys2) * dcz_step;
-                    bz = c1[2] + (ys1) * dbz_step;
-
+                    
                     aw = c2[3] + (ys2) * dcw_step;
-                    bw = c1[3] + (ys1) * dbw_step;
                 }
+                bx = c1[0] + (ys1) * dbx_step;
+                bz = c1[2] + (ys1) * dbz_step;
+                bw = c1[3] + (ys1) * dbw_step;
                 if ax > bx {
                     swap(&mut ax, &mut bx);
                     swap(&mut az, &mut bz);
@@ -172,11 +169,11 @@ impl Light {
         let b = clamp(0.005 * (dp.acos().tan()), 0.001, 0.1);
         //let b = 0.005;
         let t = point
-            .multiply_mat(look_at(
+            .multiply_mat(quick_inv(point_at(
                 self.pos,
                 self.pos.add(self.dir),
                 [0.0, 1.0, 0.0, 1.0],
-            ))
+            )))
             .multiply_mat(self.proj_mat);
 
         let t3 = 1.0 / (t[3] + 1.0);
