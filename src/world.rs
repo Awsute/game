@@ -105,11 +105,11 @@ impl Mesh {
     #[inline]
     pub fn center(&self) -> [f32; 4] {
         let mut c = [0.0, 0.0, 0.0, 1.0];
-        let n = self.tris.len() as f32;
+        let n = 1.0/self.tris.len() as f32;
         for tri in &self.tris {
             c = c.add(tri.center());
         }
-        c.scale([1.0 / n, 1.0 / n, 1.0 / n, 1.0])
+        c.scale([1.0 * n, 1.0 * n, 1.0 * n, 1.0])
     }
 
     pub fn load_obj_file(file_path: String, tex: String, col: Color, rfl: f32, trs: f32) -> Self {
@@ -314,7 +314,7 @@ pub fn point_at(pos: [f32; 4], target: [f32; 4], up: [f32; 4]) -> [[f32; 4]; 4] 
         [right[0], right[1], right[2], 0.0],
         [up[0], up[1], up[2], 0.0],
         [forward[0], forward[1], forward[2], 0.0],
-        [pos[0], pos[1], pos[2], 1.0],
+        pos,
     ]
 }
 pub fn quick_inv(m: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
@@ -360,7 +360,7 @@ pub fn clip_tri(
     in_tri: Tri3d,
     out_tris: &mut [Tri3d; 2],
 ) -> usize {
-    let plane_n = plane_n.normalize();
+    let plane_n = plane_n;
 
     let dist = |p: [f32; 4]| -> f32 { p.dot_product(plane_n) - plane_n.dot_product(plane_p) };
     let mut in_points = Vec::new();

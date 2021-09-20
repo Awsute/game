@@ -3,7 +3,7 @@ use crate::world::Engine;
 use crate::ColFuncs;
 use crate::{Tri3d, Vec3};
 use sdl2::gfx::primitives::DrawRenderer;
-use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface};
+use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
 use std::mem::swap;
 
 pub trait DrawTri {
@@ -24,6 +24,7 @@ impl DrawTri for WindowCanvas {
         engine: &mut Engine,
         tri_info: Tri3d,
     ) {
+        let mut point = Point::new(0, 0);
         let s = (
             engine.camera.window_width as i32,
             engine.camera.window_height as i32,
@@ -135,23 +136,18 @@ impl DrawTri for WindowCanvas {
 
         for y in c1[1] as i32 + 1..c3[1] as i32 + 1 {
             if y > 0 && y < s.1 {
+                point.y = y;
                 let mut tex_s: [f32; 3];
 
-                let mut tex_e: [f32; 3];
-
                 let mut point_s: [f32; 4];
-                let mut point_e: [f32; 4];
 
                 let mut ax: i32;
-                let mut bx: i32;
-
+                
                 let mut ls: [f32; 4];
-                let mut le: [f32; 4];
                 let ys1 = y as f32 - c1[1];
                 let ys2 = y as f32 - c2[1];
                 if y < c2[1] as i32 + 1 {
                     ax = (c1[0] + (ys1) * dax_step) as i32;
-                    bx = (c1[0] + (ys1) * dbx_step) as i32;
 
                     tex_s = [
                         i1[0] + (ys1) * du1_step,
@@ -159,39 +155,35 @@ impl DrawTri for WindowCanvas {
                         i1[2] + (ys1) * dw1_step,
                     ];
 
-                    tex_e = [
-                        i1[0] + (ys1) * du2_step,
-                        i1[1] + (ys1) * dv2_step,
-                        i1[2] + (ys1) * dw2_step,
-                    ];
-
                     ls = l1.add(la_step.scale_c(ys1));
-                    le = l1.add(lb_step.scale_c(ys1));
 
                     point_s = v1.add(dav_step.scale_c(ys1));
-                    point_e = v1.add(dbv_step.scale_c(ys1));
                 } else {
                     ax = (c2[0] + (ys2) * dcx_step) as i32;
-                    bx = (c1[0] + (ys1) * dbx_step) as i32;
-
+                    
                     tex_s = [
                         i2[0] + (ys2) * du3_step,
                         i2[1] + (ys2) * dv3_step,
                         i2[2] + (ys2) * dw3_step,
                     ];
 
-                    tex_e = [
-                        i1[0] + (ys1) * du2_step,
-                        i1[1] + (ys1) * dv2_step,
-                        i1[2] + (ys1) * dw2_step,
-                    ];
-
                     ls = l2.add(lc_step.scale_c(ys2));
-                    le = l1.add(lb_step.scale_c(ys1));
 
                     point_s = v2.add(dcv_step.scale_c(ys2));
-                    point_e = v1.add(dbv_step.scale_c(ys1));
                 }
+
+                let mut bx = (c1[0] + (ys1) * dbx_step) as i32;
+
+                let mut tex_e = [
+                    i1[0] + (ys1) * du2_step,
+                    i1[1] + (ys1) * dv2_step,
+                    i1[2] + (ys1) * dw2_step,
+                ];
+
+                let mut le = l1.add(lb_step.scale_c(ys1));
+
+                let mut point_e = v1.add(dbv_step.scale_c(ys1));
+
                 if ax > bx {
                     swap(&mut ax, &mut bx);
                     swap(&mut tex_s, &mut tex_e);
@@ -202,6 +194,7 @@ impl DrawTri for WindowCanvas {
 
                 for x in ax..bx {
                     if x > 0 && x < s.0 {
+                        point.x = x;
                         let t = (x - ax) as f32 * tstep;
                         let tex_w = (1.0 - t) * tex_s[2] + t * tex_e[2];
                         let dbi = (x + s.0 * y) as usize;
@@ -222,12 +215,14 @@ impl DrawTri for WindowCanvas {
                             //note: col = (diff*cos_theta + spec*r^5)*shadow*light_color*light_power + ambient
 
                             let col = if ind < buffer.len() - 2 {
+                                //let trs = buffer[ind].a as f32/255.0
                                 let norm = ls.scale_c(1.0 - t).add(le.scale_c(t)).normalize();
                                 let point = point_s
                                     .scale_c(1.0 - t)
                                     .add(point_e.scale_c(t))
                                     .scale_c(1.0 / tex_w);
-
+                                
+                                let cpoint = engine.camera.pos.subtract(point).normalize();
                                 let mut add_col = Color::BLACK;
                                 for light in &engine.lights {
                                     let dp = norm.dot_product(light.dir.negative());
@@ -237,17 +232,15 @@ impl DrawTri for WindowCanvas {
                                         .add(light.dir)
                                         .normalize()
                                         .dot_product(
-                                            point.negative().add(engine.camera.pos).normalize(),
+                                            cpoint
                                         )
                                         * tri_info.rfl;
 
-                                    let g = light.is_lit(point, norm);
-
-                                    let diff = tri_info.col.blend(Color::from_f32_greyscale(dp));
-                                    let modif = Color::from_f32_greyscale(r.powi(5)).avg(diff);
-
-                                    let shadow = Color::from_f32_greyscale(g);
-                                    add_col = add_col.add(modif.blend(shadow).blend(light.col));
+                                    add_col = add_col.add(
+                                        tri_info.col.scale(dp) //diff
+                                            .avg_f32(r.powf(light.pos.subtract(point).magnitude()/6.0)) //modif
+                                        .scale(light.is_lit(point, norm)).blend(light.col)
+                                    );
                                 }
 
                                 let pot_col =
@@ -272,11 +265,11 @@ impl DrawTri for WindowCanvas {
                             if tex_w >= d_buf {
                                 engine.depth_buffer[dbi] = tex_w;
 
-                                engine.transparency_buffer[dbi].0 =
-                                    -crate::ops::clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0);
-                                engine.transparency_buffer[dbi].1 = col;
+                                engine.transparency_buffer[dbi] =
+                                    (-crate::ops::clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
                             }
-                            self.pixel(x as i16, y as i16, col);
+                            self.set_draw_color(col);
+                            self.draw_point(point).unwrap();
                         }
                     }
                 }

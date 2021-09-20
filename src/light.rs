@@ -14,16 +14,18 @@ pub struct Light {
     pub col: Color,
     pub dir: [f32; 4],
     pub proj_mat: [[f32; 4]; 4],
+    pub look_mat : [[f32; 4]; 4],
     pub buf: Vec<f32>,
 }
 
 impl Light {
-    pub fn new(pos: [f32; 4], col: Color, dir: [f32; 4], proj_mat: [[f32; 4]; 4]) -> Self {
+    pub fn new(pos: [f32; 4], col: Color, dir: [f32; 4], proj_mat: [[f32; 4]; 4])  -> Self {
         Light {
             pos,
             col,
             dir,
             proj_mat,
+            look_mat : quick_inv(point_at(pos, pos.add(dir), [0.0, 1.0, 0.0, 1.0])),
             buf: vec![1.0; SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1],
         }
     }
@@ -32,11 +34,7 @@ impl Light {
         let rw = SHADOW_RESOLUTION.0 as f32 * 0.5;
         let rh = SHADOW_RESOLUTION.1 as f32 * 0.5;
         let t = tri
-            .multiply_mat(quick_inv(point_at(
-                self.pos,
-                self.pos.add(self.dir),
-                [0.0, 1.0, 0.0, 1.0],
-            )))
+            .multiply_mat(self.look_mat)
             .multiply_mat(self.proj_mat);
 
         if tri.normal().dot_product(self.dir) >= 0.0 {
@@ -153,7 +151,7 @@ impl Light {
                         let t = (x as f32 - ax) * tstep;
                         let z = ((1.0 - t) * az + t * bz) * ((1.0 - t) * aw + t * bw);
                         let ind = x as usize + SHADOW_RESOLUTION.0 * y as usize;
-                        if z < self.buf[ind] && z > 0.0 && z < 1.0 {
+                        if z < self.buf[ind] && z > 0.0 {
                             self.buf[ind] = z;
                         }
                     }
@@ -163,40 +161,25 @@ impl Light {
     }
     #[inline]
     pub fn is_lit(&self, point: [f32; 4], norm: [f32; 4]) -> f32 {
-        let rw = SHADOW_RESOLUTION.0 as f32 * 0.5;
-        let rh = SHADOW_RESOLUTION.1 as f32 * 0.5;
-        let dp = norm.dot_product(self.dir.negative());
-        let b = clamp(0.005 * (dp.acos().tan()), 0.001, 0.1);
+        let b = clamp(0.005 * (norm.dot_product(self.dir.negative()).acos().tan()), 0.001, 0.1);
         //let b = 0.005;
         let t = point
-            .multiply_mat(quick_inv(point_at(
-                self.pos,
-                self.pos.add(self.dir),
-                [0.0, 1.0, 0.0, 1.0],
-            )))
+            .multiply_mat(self.look_mat)
             .multiply_mat(self.proj_mat);
 
         let t3 = 1.0 / (t[3] + 1.0);
-        let f = [(t[0] * t3 + 1.0) * rw, (t[1] * t3 + 1.0) * rh];
+        let f = [(t[0] * t3 + 1.0) * SHADOW_RESOLUTION.0 as f32 * 0.5, (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5];
         let d_val = t[2] * t3;
-        if f[0] <= 0.0
-            || f[0] as usize >= SHADOW_RESOLUTION.0
-            || f[1] <= 0.0
-            || f[1] as usize >= SHADOW_RESOLUTION.1
-        {
-            return 0.0;
-        }
         let mut l = 0.0;
-        for i in 0..16 {
-            let ind = (f[0] + POISSON_DISK[i % POISSON_DISK.len()][0] * SPREAD_VAL) as usize
+        for item in POISSON_DISK.iter().take(4) { //make the loop customizable (1 to 16 iters)
+            let ind = (f[0] + item[0] * SPREAD_VAL) as usize
                 + SHADOW_RESOLUTION.0
-                    * (f[1] + POISSON_DISK[i % POISSON_DISK.len()][1] * SPREAD_VAL) as usize;
+                    * (f[1] + item[1] * SPREAD_VAL) as usize;
             if ind < SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1
                 && d_val - b <= self.buf[ind]
                 && d_val > 0.0
-                && d_val < 1.0
             {
-                l += 1.0 / 16.0;
+                l += 1.0 / 4.0;
             }
         }
         l

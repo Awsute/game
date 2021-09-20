@@ -5,15 +5,15 @@ pub trait Vec3 {
     fn scale_c(&self, scalar: f32) -> Self;
     fn add(&self, a: [f32; 4]) -> Self;
     fn subtract(&self, a: [f32; 4]) -> Self;
-    fn magnitude(&self) -> f32;
+    fn magnitude(self) -> f32;
     fn normalize(&self) -> Self;
     fn negative(&self) -> Self;
     fn cross_product(&self, c: [f32; 4]) -> Self;
     fn dot_product(&self, d: [f32; 4]) -> f32;
     fn multiply_mat(&self, mat: [[f32; 4]; 4]) -> Self;
-    fn rot(&self, r: [f32; 4]) -> Self;
 }
 impl Vec3 for [f32; 4] {
+    #[inline]
     fn scale(&self, scalar: [f32; 4]) -> [f32; 4] {
         [
             self[0] * scalar[0],
@@ -22,22 +22,28 @@ impl Vec3 for [f32; 4] {
             self[3],
         ]
     }
+    #[inline]
     fn scale_c(&self, scalar: f32) -> Self {
-        [self[0] * scalar, self[1] * scalar, self[2] * scalar, 1.0]
+        [self[0] * scalar, self[1] * scalar, self[2] * scalar, self[3]]
     }
+    #[inline]
     fn add(&self, a: [f32; 4]) -> [f32; 4] {
         [self[0] + a[0], self[1] + a[1], self[2] + a[2], self[3]]
     }
+    #[inline]
     fn subtract(&self, a: [f32; 4]) -> [f32; 4] {
         [self[0] - a[0], self[1] - a[1], self[2] - a[2], self[3]]
     }
-    fn magnitude(&self) -> f32 {
-        (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).powf(0.5)
+    #[inline]
+    fn magnitude(self) -> f32 {
+        self.dot_product(self).sqrt()
     }
+    #[inline]
     fn normalize(&self) -> [f32; 4] {
         let m = self.magnitude();
         if m != 0.0 {
-            [self[0] / m, self[1] / m, self[2] / m, self[3]]
+            let m = 1.0/m;
+            [self[0] * m, self[1] * m, self[2] * m, self[3]]
         } else {
             [0.0, 0.0, 0.0, 1.0]
         }
@@ -45,6 +51,7 @@ impl Vec3 for [f32; 4] {
     fn negative(&self) -> [f32; 4] {
         [-self[0], -self[1], -self[2], 1.0]
     }
+    #[inline]
     fn cross_product(&self, c: [f32; 4]) -> [f32; 4] {
         [
             -self[1] * c[2] + c[1] * self[2],
@@ -53,9 +60,11 @@ impl Vec3 for [f32; 4] {
             1.0,
         ]
     }
+    #[inline]
     fn dot_product(&self, d: Self) -> f32 {
         self[0] * d[0] + self[1] * d[1] + self[2] * d[2]
     }
+    #[inline]
     fn multiply_mat(&self, m: [[f32; 4]; 4]) -> [f32; 4] {
         [
             self[0] * m[0][0] + self[1] * m[1][0] + self[2] * m[2][0] + self[3] * m[3][0],
@@ -65,14 +74,9 @@ impl Vec3 for [f32; 4] {
         ]
     }
 
-    fn rot(&self, r: [f32; 4]) -> Self {
-        self.multiply_mat(Engine::z_rot(r[2]))
-            .multiply_mat(Engine::y_rot(r[1]))
-            .multiply_mat(Engine::x_rot(r[0]))
-    }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy,Clone)]
 pub struct Tri3d {
     pub ps: [[f32; 4]; 3],
     pub uvs: [[f32; 3]; 3],
@@ -151,7 +155,7 @@ impl Tri3d {
         self.ps[0]
             .add(self.ps[1])
             .add(self.ps[2])
-            .scale([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 1.0])
+            .scale([0.333, 0.333, 0.333, 0.333])
     }
     #[inline]
     pub fn multiply_mat(&self, m: [[f32; 4]; 4]) -> Self {
@@ -178,21 +182,7 @@ impl Tri3d {
         rot: [f32; 4],
         rot_point: [f32; 4],
     ) -> Self {
-        let mut t = *self;
-        if rot[0] != 0.0 || rot[1] != 0.0 || rot[2] != 0.0 {
-            t = t.translate(rot_point.negative());
-            if rot[2] != 0.0 {
-                t = t.multiply_mat(Engine::z_rot(rot[2]));
-            }
-            if rot[1] != 0.0 {
-                t = t.multiply_mat(Engine::y_rot(rot[1]));
-            }
-            if rot[0] != 0.0 {
-                t = t.multiply_mat(Engine::x_rot(rot[0]));
-            }
-            t = t.translate(rot_point);
-        }
-        t.translate(trans)
+        self.translate(rot_point.negative()).multiply_mat(Engine::z_rot(rot[2])).multiply_mat(Engine::y_rot(rot[1])).multiply_mat(Engine::x_rot(rot[0])).translate(rot_point).translate(trans)
     }
 }
 
