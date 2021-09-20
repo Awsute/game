@@ -36,7 +36,7 @@ impl DrawTri for WindowCanvas {
         let ps = tri.ps;
         let uvs = tri.uvs;
 
-        let ambient = tri_info.col.blend(engine.ambient);
+        let ambient = tri_info.col.avg(engine.ambient);
 
         let mut c1 = ps[0];
         let mut c2 = ps[1];

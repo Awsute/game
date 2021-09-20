@@ -1,8 +1,6 @@
-use crate::ops::{clamp, operations4x4, Tri3d, Vec3};
-use crate::world::{quick_inv, point_at, Engine, POISSON_DISK};
-use crate::ColFuncs;
+use crate::ops::{clamp, Tri3d, Vec3};
+use crate::world::{quick_inv, point_at, POISSON_DISK};
 use sdl2::pixels::Color;
-use sdl2::surface::Surface;
 use std::mem::swap;
 
 
