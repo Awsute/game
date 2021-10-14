@@ -1,5 +1,6 @@
 use crate::Engine;
 use sdl2::pixels::Color;
+use std::cmp::PartialOrd;
 pub trait Vec3 {
     fn scale(&self, scalar: [f32; 4]) -> Self;
     fn scale_c(&self, scalar: f32) -> Self;
@@ -36,7 +37,7 @@ impl Vec3 for [f32; 4] {
     }
     #[inline]
     fn magnitude(self) -> f32 {
-        self.dot_product(self).sqrt()
+        (self[0]*self[0] + self[1]*self[1] + self[2]*self[2]).sqrt()
     }
     #[inline]
     fn normalize(&self) -> [f32; 4] {
@@ -267,21 +268,7 @@ impl operations4x4 for [[f32; 4]; 4] {
         ]
     }
 }
-pub fn max(n1: f32, n2: f32) -> f32 {
-    if n1 > n2 {
-        n1
-    } else {
-        n2
-    }
-}
-pub fn min(n1: f32, n2: f32) -> f32 {
-    if n1 < n2 {
-        n1
-    } else {
-        n2
-    }
-}
-pub fn clamp(val: f32, min_val: f32, max_val: f32) -> f32 {
+pub fn clamp<T:PartialOrd>(val: T, min_val: T, max_val: T) -> T{
     if val > max_val {
         max_val
     } else if val < min_val {

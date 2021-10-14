@@ -351,10 +351,11 @@ pub fn vec_intersect_plane(
     let ad = line_s.dot_product(plane_n);
     let bd = line_e.dot_product(plane_n);
     let t = (-plane_d - ad) / (bd - ad);
-    (line_s.add(line_e.subtract(line_s).scale([t, t, t, 1.0])), t)
+    (line_s.add(line_e.subtract(line_s).scale_c(t)), t)
 }
 
 pub fn clip_tri(
+    mat3d: [[f32;4];4],
     plane_p: [f32; 4],
     plane_n: [f32; 4],
     in_tri: Tri3d,
@@ -363,8 +364,16 @@ pub fn clip_tri(
     let plane_n = plane_n;
 
     let dist = |p: [f32; 4]| -> f32 { p.dot_product(plane_n) - plane_n.dot_product(plane_p) };
+    
+    let in_tri2d = in_tri.multiply_mat(mat3d);
+
+
+    
     let mut in_points = Vec::new();
+    let mut in_points2d = Vec::new();
+
     let mut out_points = Vec::new();
+    let mut out_points2d = Vec::new();
 
     let mut in_uvs = Vec::new();
     let mut out_uvs = Vec::new();
@@ -372,36 +381,47 @@ pub fn clip_tri(
     let mut in_ns = Vec::new();
     let mut out_ns = Vec::new();
 
-    let d0 = dist(in_tri.ps[0]);
-    let d1 = dist(in_tri.ps[1]);
-    let d2 = dist(in_tri.ps[2]);
+    let d0 = dist(in_tri2d.ps[0]);
+    let d1 = dist(in_tri2d.ps[1]);
+    let d2 = dist(in_tri2d.ps[2]);
 
     if d0 >= 0.0 {
         in_points.push(in_tri.ps[0]);
+        in_points2d.push(in_tri2d.ps[0]);
+
         in_uvs.push(in_tri.uvs[0]);
         in_ns.push(in_tri.ns[0]);
     } else {
         out_points.push(in_tri.ps[0]);
+
+        out_points2d.push(in_tri2d.ps[0]);
         out_uvs.push(in_tri.uvs[0]);
         out_ns.push(in_tri.ns[0]);
     }
 
     if d1 >= 0.0 {
         in_points.push(in_tri.ps[1]);
+        in_points2d.push(in_tri2d.ps[1]);
         in_uvs.push(in_tri.uvs[1]);
         in_ns.push(in_tri.ns[1]);
     } else {
         out_points.push(in_tri.ps[1]);
+        out_points2d.push(in_tri2d.ps[1]);
+
         out_uvs.push(in_tri.uvs[1]);
         out_ns.push(in_tri.ns[1]);
     }
 
     if d2 >= 0.0 {
         in_points.push(in_tri.ps[2]);
+        in_points2d.push(in_tri2d.ps[2]);
+
         in_uvs.push(in_tri.uvs[2]);
         in_ns.push(in_tri.ns[2]);
     } else {
         out_points.push(in_tri.ps[2]);
+        out_points2d.push(in_tri2d.ps[2]);
+
         out_uvs.push(in_tri.uvs[2]);
         out_ns.push(in_tri.ns[2]);
     }
@@ -414,11 +434,11 @@ pub fn clip_tri(
     } else if in_points.len() == 1 {
         out_tris[0] = in_tri;
 
-        let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
-        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
+        let ab = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[0]);
+        let ac = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[1]);
         out_tris[0].ps[0] = in_points[0];
-        out_tris[0].ps[1] = ab.0;
-        out_tris[0].ps[2] = ac.0;
+        out_tris[0].ps[1] = in_points[0].add(out_points[0].subtract(in_points[0]).scale_c(ab.1));
+        out_tris[0].ps[2] = in_points[0].add(out_points[1].subtract(in_points[0]).scale_c(ac.1));
 
         let tab = ab.1;
 
@@ -449,13 +469,13 @@ pub fn clip_tri(
         //out_tris[0].col = Color::BLUE;
         //out_tris[1].col = Color::GREEN;
 
-        let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
-        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+        let ab = vec_intersect_plane(plane_p, plane_n, in_points2d[1], out_points2d[0]);
+        let ac = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[0]);
         let tac = ac.1;
 
         out_tris[0].ps[0] = in_points[0];
         out_tris[0].ps[1] = in_points[1];
-        out_tris[0].ps[2] = ac.0;
+        out_tris[0].ps[2] = in_points[0].add(out_points[0].subtract(in_points[0]).scale_c(tac));
 
         out_tris[0].uvs[0] = in_uvs[0];
         out_tris[0].uvs[1] = in_uvs[1];
@@ -473,7 +493,7 @@ pub fn clip_tri(
 
         out_tris[1].ps[0] = in_points[1];
         out_tris[1].ps[1] = out_tris[0].ps[2];
-        out_tris[1].ps[2] = ab.0;
+        out_tris[1].ps[2] = in_points[1].add(out_points[0].subtract(in_points[1]).scale_c(tab));
 
         out_tris[1].uvs[0] = in_uvs[1];
         out_tris[1].uvs[1] = out_tris[0].uvs[2];

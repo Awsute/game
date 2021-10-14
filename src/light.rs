@@ -113,13 +113,10 @@ impl Light {
         for y in c1[1] as i32 + 1..c3[1] as i32 + 1 {
             if y > 0 && y < SHADOW_RESOLUTION.1 as i32 {
                 let mut ax: f32;
-                let mut bx: f32;
 
                 let mut az: f32;
-                let mut bz: f32;
 
                 let mut aw: f32;
-                let mut bw: f32;
                 let ys1 = y as f32 - c1[1];
                 let ys2 = y as f32 - c2[1];
                 if y < c2[1] as i32 + 1 {
@@ -135,9 +132,9 @@ impl Light {
                     
                     aw = c2[3] + (ys2) * dcw_step;
                 }
-                bx = c1[0] + (ys1) * dbx_step;
-                bz = c1[2] + (ys1) * dbz_step;
-                bw = c1[3] + (ys1) * dbw_step;
+                let mut bx = c1[0] + (ys1) * dbx_step;
+                let mut bz = c1[2] + (ys1) * dbz_step;
+                let mut bw = c1[3] + (ys1) * dbw_step;
                 if ax > bx {
                     swap(&mut ax, &mut bx);
                     swap(&mut az, &mut bz);
@@ -156,31 +153,5 @@ impl Light {
                 }
             }
         }
-    }
-    #[inline]
-    pub fn is_lit(&self, point: [f32; 4], norm: [f32; 4]) -> f32 {
-        let b = clamp(0.005 * (norm.dot_product(self.dir.negative()).acos().tan()), 0.001, 0.1);
-        //let b = 0.005;
-        let t = point
-            .multiply_mat(self.look_mat)
-            .multiply_mat(self.proj_mat);
-
-        let t3 = 1.0 / (t[3] + 1.0);
-        let f = [(t[0] * t3 + 1.0) * SHADOW_RESOLUTION.0 as f32 * 0.5, (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5];
-        let d_val = t[2] * t3;
-        let mut l = 0.0;
-        for item in POISSON_DISK.iter().take(4) { //make the loop customizable (1 to 16 iters)
-            let ind = (f[0] + item[0] * SPREAD_VAL) as usize
-                + SHADOW_RESOLUTION.0
-                    * (f[1] + item[1] * SPREAD_VAL) as usize;
-            if ind < SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1
-                && d_val - b <= self.buf[ind]
-                && d_val > 0.0
-            {
-                l += 1.0 / 4.0;
-            }
-        }
-        l
-        
     }
 }

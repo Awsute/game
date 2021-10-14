@@ -131,12 +131,12 @@ fn main() {
         depth_buffer : Vec::new(),
         transparency_buffer : Vec::new(),
         lights : Vec::new(),
-        ambient : Color::BLACK
+        ambient : Color::BLACK  
     };
 
     
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 8.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([0.0, 0.0, 8.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[1]);
     
     engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/travisScot.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
@@ -314,16 +314,19 @@ fn main() {
         let rcos = r.cos();
         let rsin = r.sin();
         let rtan = r.tan();
-
+        let zrat = cam.render_distance / (cam.render_distance - cam.clip_distance);
+        let z = (-cam.clip_distance*zrat+zrat)/cam.clip_distance;
         let w_clip = [
-            [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
-            [[0.0, 0.0, cam.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[0.0, cam.clip_distance*rsin/aspect+aspect, cam.clip_distance, 1.0], [0.0, -rsin, rcos, 1.0]],
-            [[0.0, -cam.clip_distance*rsin/aspect-aspect, cam.clip_distance, 1.0], [0.0, rsin, rcos, 1.0]],
+            [[0.0, 0.0, cam.render_distance*z, 1.0], [0.0, 0.0, -1.0, 1.0]],
+            [[0.0, 0.0, cam.clip_distance*z, 1.0], [0.0, 0.0, 1.0, 1.0]],
+
+            [[0.0, 2.0/aspect, 0.0, 1.0], [0.0, -1.0, 0.0, 1.0]],
+            [[0.0, -2.0/aspect, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
             
-            [[-cam.clip_distance*rsin*aspect-aspect, 0.0, cam.clip_distance, 1.0], [rsin*aspect, 0.0, rcos, 1.0]],
-            [[cam.clip_distance*rsin*aspect+aspect, 0.0, cam.clip_distance, 1.0], [-rsin*aspect, 0.0, rcos, 1.0]],
+            [[-2.0/aspect*rtan, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+            [[2.0/aspect*rtan, 0.0, 0.0, 1.0], [-1.0, 0.0, 0.0, 1.0]],
+            
 
         ];
 
@@ -365,7 +368,7 @@ fn main() {
                         let trs = &mut [Tri3d::empty(), Tri3d::empty()];
                         for plane in &w_clip{
                             for _n in 0..clipped.len(){
-                                let t_clipped = clip_tri(plane[0], plane[1], clipped[0], trs);
+                                let t_clipped = clip_tri(mat3d, plane[0], plane[1], clipped[0], trs);
                                 clipped.remove(0);
                                 for b in trs.iter().take(t_clipped){
                                     clipped.push(*b);
@@ -450,7 +453,7 @@ fn main() {
         ).unwrap();
         
         canvas.present();
-        canvas.set_draw_color(engine.ambient);
+        canvas.set_draw_color(Color::BLACK);
         canvas.clear();
 
     }

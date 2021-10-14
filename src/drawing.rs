@@ -1,9 +1,12 @@
 extern crate sdl2;
-use crate::world::Engine;
+use crate::world::{Engine, POISSON_DISK};
 use crate::ColFuncs;
 use crate::{Tri3d, Vec3};
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
+use crate::light::{SHADOW_RESOLUTION, SPREAD_VAL};
+use crate::ops::clamp;
+
 use std::mem::swap;
 
 pub trait DrawTri {
@@ -225,7 +228,7 @@ impl DrawTri for WindowCanvas {
                                 let cpoint = engine.camera.pos.subtract(point).normalize();
                                 let mut add_col = Color::BLACK;
                                 for light in &engine.lights {
-                                    let dp = norm.dot_product(light.dir.negative());
+                                    let dp = -norm.dot_product(light.dir);
 
                                     let r = norm
                                         .scale_c(2.0 * dp)
@@ -235,11 +238,38 @@ impl DrawTri for WindowCanvas {
                                             cpoint
                                         )
                                         * tri_info.rfl;
-
+                                        
+                                    let g = {
+                                        let dp = dp.powi(2);
+                                        let b = clamp(0.005 * ((1.0-dp)/dp).sqrt(), 0.001, 0.1);
+                                    
+                                        //let b = 0.005;
+                                        let t = point
+                                            .multiply_mat(light.look_mat)
+                                            .multiply_mat(light.proj_mat);
+                                
+                                        let t3 = 1.0 / (t[3] + 1.0);
+                                        let f0 = (t[0] * t3 + 1.0) * SHADOW_RESOLUTION.0 as f32 * 0.5;
+                                        let f1 = (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5;
+                                        let d_val = t[2] * t3;
+                                        let mut l = 0.0;
+                                        for item in POISSON_DISK.iter().take(4) { //make the loop customizable (1 to 16 iters)
+                                            let ind = (f0 + item[0] * SPREAD_VAL) as usize
+                                                + SHADOW_RESOLUTION.0
+                                                    * (f1 + item[1] * SPREAD_VAL) as usize;
+                                            if ind < SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1
+                                                && d_val - b <= light.buf[ind]
+                                                && d_val >= b
+                                            {
+                                                l += 1.0 / 4.0;
+                                            }
+                                        }
+                                        l
+                                    };
                                     add_col = add_col.add(
                                         tri_info.col.scale(dp) //diff
                                             .avg_f32(r.powf(light.pos.subtract(point).magnitude()/6.0)) //modif
-                                        .scale(light.is_lit(point, norm)).blend(light.col)
+                                        .scale(g).blend(light.col)
                                     );
                                 }
 
