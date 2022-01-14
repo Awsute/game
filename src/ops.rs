@@ -187,10 +187,26 @@ impl Tri3d {
     }
 }
 
+fn determinant3x3(mat:[[f32;3];3])->f32{
+    return mat[0][0]*mat[1][1]*mat[2][2] + mat[1][0]*mat[2][1]*mat[0][2] + mat[2][0]*mat[0][1]*mat[1][2]
+        - mat[2][0]*mat[1][1]*mat[0][2] - mat[1][0]*mat[0][1]*mat[2][2] - mat[0][0]*mat[2][1]*mat[1][2]
+}
+
 pub trait operations4x4 {
+    fn scale(self, scalar:f32)->Self;
     fn multiply(self, mat: Self) -> Self;
+    fn add(self, mat: Self) -> Self;
 }
 impl operations4x4 for [[f32; 4]; 4] {
+    fn scale(mut self, scalar:f32)->Self{
+        for i in 0..4{
+            for j in 0..4{
+                self[i][j] = self[i][j]*scalar
+            }
+        }
+        return self
+    }
+   
     fn multiply(self, mat: Self) -> Self {
         [
             [
@@ -265,6 +281,14 @@ impl operations4x4 for [[f32; 4]; 4] {
                     + self[3][2] * mat[2][3]
                     + self[3][3] * mat[3][3],
             ],
+        ]
+    }
+    fn add(self, mat: Self) -> Self{
+        return [
+            [self[0][0]+mat[0][0], self[0][1]+mat[0][1], self[0][2]+mat[0][2], self[0][3]+mat[0][3]],
+            [self[1][0]+mat[0][0], self[1][1]+mat[1][1], self[1][2]+mat[1][2], self[1][3]+mat[1][3]],
+            [self[2][0]+mat[0][0], self[2][1]+mat[2][1], self[2][2]+mat[2][2], self[2][3]+mat[2][3]],
+            [self[3][0]+mat[0][0], self[3][1]+mat[3][1], self[3][2]+mat[3][2], self[3][3]+mat[3][3]],
         ]
     }
 }

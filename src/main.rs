@@ -110,8 +110,8 @@ fn main() {
     let max_fps = 60_u32;
     let player_cam = Camera{
         fov : 90.0,
-        pos : [0.0, 0.0, 0.0, 1.0],
-        dir : [0.0, 0.0, 1.0, 1.0].normalize(),
+        pos : [5.0, 0.0, 10.0, 1.0],
+        dir : [-1.0, 0.0, 0.0, 1.0].normalize(),
         vel : [0.0, 0.0, 0.0, 0.0],
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
@@ -284,11 +284,9 @@ fn main() {
         {
             //rotvel in radians
             //dir is direction
-            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0])+cam.rot_vel[2]*(1.0-cam.dir[2]), cam.rot_vel[1], cam.rot_vel[2]*cam.dir[2]-cam.rot_vel[0]*cam.dir[0], 1.0].normalize().scale_c(rspeed/fps);
+            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0])+cam.rot_vel[2]*(1.0-cam.dir[2]), -cam.rot_vel[1], cam.rot_vel[2]*cam.dir[2]-cam.rot_vel[0]*cam.dir[0], 1.0].normalize().scale_c(rspeed/fps);
             cam.dir = cam.dir
-                .multiply_mat(Engine::z_rot(rvel[2]))
-                .multiply_mat(Engine::y_rot(rvel[1]))
-                .multiply_mat(Engine::x_rot(rvel[0]))
+                .multiply_mat(Engine::z_rot(rvel[2]).multiply(Engine::y_rot(rvel[1])).multiply(Engine::x_rot(rvel[0])))
             .normalize();
 
             let cam_fwd = cam.dir;
@@ -310,7 +308,7 @@ fn main() {
         //in view space
        
         let aspect = cam.window_height/cam.window_width;
-        let r = cam.fov.to_radians()*0.5;
+        let r = cam.fov.to_radians()*0.4;
         let rcos = r.cos();
         let rsin = r.sin();
         let rtan = r.tan();
@@ -318,15 +316,17 @@ fn main() {
         let z = (-cam.clip_distance*zrat+zrat)/cam.clip_distance;
         let w_clip = [
             
+            
+            
+            [[0.5/aspect, 0.0, 0.0, 1.0], [-rcos, 0.0, rsin, 1.0]],
+            [[-0.5/aspect, 0.0, 0.0, 1.0], [rcos, 0.0, rsin, 1.0]],
+            
+            [[0.0, 1.0*aspect, 0.0, 1.0], [0.0, -rcos, rsin, 1.0]],
+            [[0.0, -1.0*aspect, 0.0, 1.0], [0.0, rcos, rsin, 1.0]],
+            
+            
             [[0.0, 0.0, cam.render_distance*z, 1.0], [0.0, 0.0, -1.0, 1.0]],
             [[0.0, 0.0, cam.clip_distance*z, 1.0], [0.0, 0.0, 1.0, 1.0]],
-
-            [[0.0, 2.0/aspect, 0.0, 1.0], [0.0, -1.0, 0.0, 1.0]],
-            [[0.0, -2.0/aspect, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
-            
-            [[-2.0/aspect*rtan, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
-            [[2.0/aspect*rtan, 0.0, 0.0, 1.0], [-1.0, 0.0, 0.0, 1.0]],
-            
 
         ];
 

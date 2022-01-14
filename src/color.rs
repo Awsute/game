@@ -52,10 +52,10 @@ impl ColFuncs for Color {
     #[inline]
     fn add(&self, c: Self) -> Self {
         Color::RGBA(
-            clamp(self.r + c.r, 0, 255),
-            clamp(self.g + c.g, 0, 255), 
-            clamp(self.b + c.b, 0, 255), 
-            clamp(self.a + c.a, 0, 255)
+            clamp(self.r as u16 + c.r as u16, 0, 255) as u8,
+            clamp(self.g as u16 + c.g as u16, 0, 255) as u8, 
+            clamp(self.b as u16 + c.b as u16, 0, 255) as u8, 
+            clamp(self.a as u16 + c.a as u16, 0, 255) as u8
         )
     }
 
