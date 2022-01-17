@@ -219,7 +219,7 @@ impl DrawTri for WindowCanvas {
 
                             let col = if ind < buffer.len() - 2 {
                                 //let trs = buffer[ind].a as f32/255.0
-                                let norm = ls.scale_c(1.0 - t).add(le.scale_c(t)).normalize();
+                                let norm = ls.scale_c(1.0 - t).add(le.scale_c(t));
                                 let point = point_s
                                     .scale_c(1.0 - t)
                                     .add(point_e.scale_c(t))
