@@ -9,7 +9,7 @@ fn fisqrt(x: f32)-> f32{
     i = 0x5f375a86 - (i >> 1);                        // what the frick?
     let y: f32 = unsafe { std::mem::transmute(i) };
     let y  = y * ( 1.5 - ( x2 * y * y ) );     // 1st iteration
-    //		y  = y * ( threehalfs - ( x2 * y * y ) );       // 2nd iteration, this can be removed
+    //let y  = y * ( 1.5 - ( x2 * y * y ) );       // 2nd iteration, this can be removed
 
     return y;
 }
@@ -54,9 +54,11 @@ impl Vec3 for [f32; 4] {
     }
     #[inline]
     fn normalize(&self) -> [f32; 4] {
-        let m = self[0]*self[0]+self[1]*self[1]+self[2]*self[2];
+        //let m = self[0]*self[0]+self[1]*self[1]+self[2]*self[2];
+        let m = self.magnitude();
         if m != 0.0 {
-            let m = fisqrt(m);
+            //let m = fisqrt(m);
+            let m = 1.0/m;
             [self[0] * m, self[1] * m, self[2] * m, self[3]]
         } else {
             [0.0, 0.0, 0.0, 1.0]

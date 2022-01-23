@@ -1,7 +1,8 @@
-extern crate sdl2;
 use crate::world::{Engine, POISSON_DISK};
 use crate::ColFuncs;
+use crate::RES_MOD;
 use crate::{Tri3d, Vec3};
+use sdl2::rect::Rect;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
 use crate::light::{SHADOW_RESOLUTION, SPREAD_VAL};
@@ -253,7 +254,7 @@ impl DrawTri for WindowCanvas {
                                         let f1 = (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5;
                                         let d_val = t[2] * t3;
                                         let mut l = 0.0;
-                                        let iters = 1.0;
+                                        let iters = 4.0;
                                         for item in POISSON_DISK.iter().take(iters as usize) { //make the loop customizable (1 to 16 iters)
                                             let ind = (f0 + item[0] * SPREAD_VAL) as usize
                                                 + SHADOW_RESOLUTION.0
@@ -300,7 +301,8 @@ impl DrawTri for WindowCanvas {
                                     (-crate::ops::clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
                             }
                             self.set_draw_color(col);
-                            self.draw_point(point).unwrap();
+                            self.fill_rect(Rect::new(RES_MOD as i32*point.x, RES_MOD as i32*point.y, RES_MOD as u32, RES_MOD as u32));
+
                         }
                     }
                 }
