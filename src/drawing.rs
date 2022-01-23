@@ -239,11 +239,11 @@ impl DrawTri for WindowCanvas {
                                         )
                                         * tri_info.rfl;
                                         
-                                    let g = {
-                                        let dp = dp.powi(2);
-                                        let b = clamp(0.005 * ((1.0-dp)/dp).sqrt(), 0.001, 0.1);
+                                    let g = { //shadows
+                                        //let dp = dp.powi(2);
+                                        //let b = clamp(0.005 * ((1.0-dp)/dp).sqrt(), 0.001, 0.1);
                                     
-                                        //let b = 0.005;
+                                        let b = 0.005;
                                         let t = point
                                             .multiply_mat(light.look_mat)
                                             .multiply_mat(light.proj_mat);
@@ -253,7 +253,8 @@ impl DrawTri for WindowCanvas {
                                         let f1 = (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5;
                                         let d_val = t[2] * t3;
                                         let mut l = 0.0;
-                                        for item in POISSON_DISK.iter().take(4) { //make the loop customizable (1 to 16 iters)
+                                        let iters = 1.0;
+                                        for item in POISSON_DISK.iter().take(iters as usize) { //make the loop customizable (1 to 16 iters)
                                             let ind = (f0 + item[0] * SPREAD_VAL) as usize
                                                 + SHADOW_RESOLUTION.0
                                                     * (f1 + item[1] * SPREAD_VAL) as usize;
@@ -261,7 +262,7 @@ impl DrawTri for WindowCanvas {
                                                 && d_val - b <= light.buf[ind]
                                                 && d_val >= b
                                             {
-                                                l += 1.0 / 4.0;
+                                                l += 1.0 / iters;
                                             }
                                         }
                                         l

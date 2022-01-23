@@ -109,7 +109,7 @@ impl Mesh {
         for tri in &self.tris {
             c = c.add(tri.center());
         }
-        c.scale([1.0 * n, 1.0 * n, 1.0 * n, 1.0])
+        c.scale([n, n, n, 1.0])
     }
 
     pub fn load_obj_file(file_path: String, tex: String, col: Color, rfl: f32, trs: f32) -> Self {

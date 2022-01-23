@@ -78,6 +78,16 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     r
 }
 //hi
+fn fisqrt(x: f32)-> f32{
+    let x2: f32 = x * 0.5f32;
+    let mut i: u32 = unsafe { std::mem::transmute(x) }; // evil floating point bit level hacking
+    i = 0x5f375a86 - (i >> 1);                        // what the fuck?
+    let y: f32 = unsafe { std::mem::transmute(i) };
+    let y  = y * ( 1.5 - ( x2 * y * y ) );     // 1st iteration
+    //		y  = y * ( threehalfs - ( x2 * y * y ) );       // 2nd iteration, this can be removed
+
+    return y;
+}
 fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
@@ -109,7 +119,7 @@ fn main() {
     let _texture_creator = canvas.texture_creator();
     let max_fps = 60_u32;
     let player_cam = Camera{
-        fov : 60.0,
+        fov : 90.0,
         pos : [5.0, 0.0, 10.0, 1.0],
         dir : [-1.0, 0.0, 0.0, 1.0],
         vel : [0.0, 0.0, 0.0, 0.0],
@@ -120,8 +130,6 @@ fn main() {
         window_width : screen_width as f32,
         
     };
-
-
 
 
     
@@ -136,7 +144,7 @@ fn main() {
 
     
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([0.0, 0.0, 8.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 8.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[1]);
     
     engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/travisScot.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
@@ -150,7 +158,6 @@ fn main() {
             Color::RGB(255, 255, 255), 
             [-1.0, 0.0, 1.0, 1.0].normalize(),
             //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
-    
             world::matrix3d_perspective(90.0, 50.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32),
             
         )

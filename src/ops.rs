@@ -1,12 +1,25 @@
 use crate::Engine;
 use sdl2::pixels::Color;
 use std::cmp::PartialOrd;
+
+#[inline]
+fn fisqrt(x: f32)-> f32{
+    let x2: f32 = x * 0.5f32;
+    let mut i: u32 = unsafe { std::mem::transmute(x) }; // evil floating point bit level hacking
+    i = 0x5f375a86 - (i >> 1);                        // what the frick?
+    let y: f32 = unsafe { std::mem::transmute(i) };
+    let y  = y * ( 1.5 - ( x2 * y * y ) );     // 1st iteration
+    //		y  = y * ( threehalfs - ( x2 * y * y ) );       // 2nd iteration, this can be removed
+
+    return y;
+}
+
 pub trait Vec3 {
     fn scale(&self, scalar: [f32; 4]) -> Self;
     fn scale_c(&self, scalar: f32) -> Self;
     fn add(&self, a: [f32; 4]) -> Self;
     fn subtract(&self, a: [f32; 4]) -> Self;
-    fn magnitude(self) -> f32;
+    fn magnitude(&self) -> f32;
     fn normalize(&self) -> Self;
     fn negative(&self) -> Self;
     fn cross_product(&self, c: [f32; 4]) -> Self;
@@ -36,19 +49,20 @@ impl Vec3 for [f32; 4] {
         [self[0] - a[0], self[1] - a[1], self[2] - a[2], self[3]]
     }
     #[inline]
-    fn magnitude(self) -> f32 {
+    fn magnitude(&self) -> f32 {
         (self[0]*self[0] + self[1]*self[1] + self[2]*self[2]).sqrt()
     }
     #[inline]
     fn normalize(&self) -> [f32; 4] {
-        let m = self.magnitude();
+        let m = self[0]*self[0]+self[1]*self[1]+self[2]*self[2];
         if m != 0.0 {
-            let m = 1.0/m;
+            let m = fisqrt(m);
             [self[0] * m, self[1] * m, self[2] * m, self[3]]
         } else {
             [0.0, 0.0, 0.0, 1.0]
         }
     }
+    
     fn negative(&self) -> [f32; 4] {
         [-self[0], -self[1], -self[2], 1.0]
     }
