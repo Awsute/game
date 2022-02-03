@@ -270,7 +270,7 @@ impl DrawTri for WindowCanvas {
                                     };
                                     add_col = add_col.add(
                                         tri_info.col.scale(dp) //diff
-                                            .avg_f32(r.powf(light.pos.subtract(point).magnitude()/6.0)) //modif
+                                            .avg_f32(r.powf(5.0)) //modif
                                         .scale(g).blend(light.col)
                                     );
                                 }
@@ -298,10 +298,10 @@ impl DrawTri for WindowCanvas {
                                 engine.depth_buffer[dbi] = tex_w;
 
                                 engine.transparency_buffer[dbi] =
-                                    (-crate::ops::clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
+                                    (-clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
                             }
                             self.set_draw_color(col);
-                            self.fill_rect(Rect::new(RES_MOD as i32*point.x, RES_MOD as i32*point.y, RES_MOD as u32, RES_MOD as u32));
+                            self.fill_rect(Rect::new(RES_MOD*x, RES_MOD*y, RES_MOD as u32, RES_MOD as u32));
 
                         }
                     }

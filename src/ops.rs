@@ -4,6 +4,9 @@ use std::cmp::PartialOrd;
 
 #[inline]
 fn fisqrt(x: f32)-> f32{
+    if x == 0.0{
+        return 0.0
+    }
     let x2: f32 = x * 0.5f32;
     let mut i: u32 = unsafe { std::mem::transmute(x) }; // evil floating point bit level hacking
     i = 0x5f375a86 - (i >> 1);                        // what the frick?
@@ -54,15 +57,8 @@ impl Vec3 for [f32; 4] {
     }
     #[inline]
     fn normalize(&self) -> [f32; 4] {
-        //let m = self[0]*self[0]+self[1]*self[1]+self[2]*self[2];
-        let m = self.magnitude();
-        if m != 0.0 {
-            //let m = fisqrt(m);
-            let m = 1.0/m;
-            [self[0] * m, self[1] * m, self[2] * m, self[3]]
-        } else {
-            [0.0, 0.0, 0.0, 1.0]
-        }
+        let m = fisqrt(self[0]*self[0]+self[1]*self[1]+self[2]*self[2]);
+        [self[0] * m, self[1] * m, self[2] * m, self[3]]
     }
     
     fn negative(&self) -> [f32; 4] {

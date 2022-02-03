@@ -78,7 +78,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     }
     r
 }
-pub const RES_MOD : f32 = 1.0;
+pub const RES_MOD : i32 = 3;
 fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
@@ -117,8 +117,8 @@ fn main() {
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
         render_distance : 500.0,
-        window_height : screen_height as f32/RES_MOD,
-        window_width : screen_width as f32/RES_MOD,
+        window_height : screen_height as f32/RES_MOD as f32,
+        window_width : screen_width as f32/RES_MOD as f32,
         
     };
 
