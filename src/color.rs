@@ -64,3 +64,22 @@ impl ColFuncs for Color {
         Color::RGBA(f, f, f, f)
     }
 }
+#[inline]
+pub fn avg_cols(cols : &[Color]) -> Color{
+    let mut r : usize = 0;
+    let mut g : usize = 0;
+    let mut b : usize = 0;
+    let mut a : usize = 0;
+    for c in cols{
+        r = r + c.r as usize;
+        g = g + c.g as usize;
+        b = b + c.b as usize;
+        a = a + c.a as usize;
+    }
+    let ln = cols.len();
+    r = r/ln;
+    g = g/ln;
+    b = b/ln;
+    a = a/ln;
+    Color::RGBA(r as u8, g as u8, b as u8, a as u8)
+}

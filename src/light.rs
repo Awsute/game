@@ -4,7 +4,7 @@ use sdl2::pixels::Color;
 use std::mem::swap;
 
 
-pub const SHADOW_RESOLUTION: (usize, usize) = (1024, 1024);
+pub const SHADOW_RESOLUTION: (usize, usize) = (512, 512);
 pub const SPREAD_VAL: f32 = 1.0;
 
 pub struct Light {

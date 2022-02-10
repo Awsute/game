@@ -28,6 +28,7 @@ mod drawing;
 use drawing::DrawTri;
 mod color;
 use color::ColFuncs;
+use color::avg_cols;
 
 mod light;
 use light::Light;
@@ -78,7 +79,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     }
     r
 }
-pub const RES_MOD : i32 = 3;
+pub const RES_MOD : i32 = 4;
 fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
@@ -145,9 +146,19 @@ fn main() {
     
     engine.lights.push(
         Light::new(
-            [20.0, 0.0, 5.0, 1.0], 
-            Color::RGB(255, 255, 255), 
-            [-1.0, 0.0, 0.0, 1.0].normalize(),
+            [20.0, 0.0, -15.0, 1.0], 
+            Color::RGB(0, 255, 0), 
+            [-1.0, 0.0, 1.0, 1.0].normalize(),
+            //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
+            world::matrix3d_perspective(90.0, 50.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32),
+            
+        )
+    );
+    engine.lights.push(
+        Light::new(
+            [20.0, 0.0, 25.0, 1.0], 
+            Color::RGB(255, 0, 255), 
+            [-1.0, 0.0, -1.0, 1.0].normalize(),
             //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
             world::matrix3d_perspective(90.0, 50.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32),
             

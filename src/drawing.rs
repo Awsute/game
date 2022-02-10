@@ -7,8 +7,9 @@ use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
 use crate::light::{SHADOW_RESOLUTION, SPREAD_VAL};
 use crate::ops::clamp;
-
+use crate::avg_cols;
 use std::mem::swap;
+
 
 pub trait DrawTri {
     fn textured_triangle(
@@ -195,7 +196,7 @@ impl DrawTri for WindowCanvas {
                     swap(&mut point_s, &mut point_e);
                 }
                 let tstep = 1.0 / (bx - ax) as f32;
-
+                
                 for x in ax..bx {
                     if x > 0 && x < s.0 {
                         point.x = x;
@@ -227,7 +228,7 @@ impl DrawTri for WindowCanvas {
                                     .scale_c(1.0 / tex_w);
                                 
                                 let cpoint = engine.camera.pos.subtract(point).normalize();
-                                let mut add_col = Color::BLACK;
+                                let mut add_col : Vec<Color> = Vec::new();
                                 for light in &engine.lights {
                                     let dp = -norm.dot_product(light.dir);
 
@@ -268,17 +269,15 @@ impl DrawTri for WindowCanvas {
                                         }
                                         l
                                     };
-                                    add_col = add_col.add(
+                                    add_col.push(
                                         tri_info.col.scale(dp) //diff
-                                            .avg_f32(r.powf(5.0)) //modif
+                                            .avg_f32(r*r*r) //modif
                                         .scale(g).blend(light.col)
                                     );
                                 }
-
+                                add_col.extend([Color::RGB(buffer[ind], buffer[ind + 1], buffer[ind + 2]), ambient]);
                                 let pot_col =
-                                    Color::RGB(buffer[ind], buffer[ind + 1], buffer[ind + 2])
-                                        .avg(ambient)
-                                        .avg(add_col);
+                                    avg_cols(&add_col);
 
                                 if tex_w < d_buf && tr_buf.0 > 0.0 {
                                     tr_buf.1.scale(1.0 - tr_buf.0).add(pot_col.scale(tr_buf.0))
