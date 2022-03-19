@@ -230,22 +230,25 @@ impl DrawTri for WindowCanvas {
                                 let cpoint = engine.camera.pos.subtract(point).normalize();
                                 let mut add_col : Vec<Color> = Vec::new();
                                 for light in &engine.lights {
-                                    let dp = -norm.dot_product(light.dir);
+                                    let lpoint = light.pos.subtract(point).normalize();
+                                    let h_vec = cpoint.add(lpoint).normalize();
+                                    let dp = norm.dot_product(h_vec);
 
-                                    let r = norm
-                                        .scale_c(2.0 * dp)
-                                        .add(light.dir)
-                                        .normalize()
-                                        .dot_product(
-                                            cpoint
-                                        )
-                                        * tri_info.rfl;
-                                        
+                                    //let r = norm
+                                    //    .scale_c(2.0 * dp)
+                                    //    .add(light.dir)
+                                    //    .normalize()
+                                    //    .dot_product(
+                                    //        cpoint
+                                    //    )
+                                    //    * tri_info.rfl;
+                                    let r = dp*tri_info.rfl;
+                                    let dp = -cpoint.dot_product(norm);
                                     let g = { //shadows
-                                        //let dp = dp.powi(2);
-                                        //let b = clamp(0.005 * ((1.0-dp)/dp).sqrt(), 0.001, 0.1);
+                                        let dp = dp.powi(2);
+                                        let b = clamp(0.001 * ((1.0-dp)/dp).sqrt(), 0.001, 0.1);
                                     
-                                        let b = 0.005;
+                                        //let b = 0.001;
                                         let t = point
                                             .multiply_mat(light.look_mat)
                                             .multiply_mat(light.proj_mat);
@@ -271,7 +274,7 @@ impl DrawTri for WindowCanvas {
                                     };
                                     add_col.push(
                                         tri_info.col.scale(dp) //diff
-                                            .avg_f32(r*r*r) //modif
+                                            .add(Color::from_f32_greyscale(r.powi(3))) //modif
                                         .scale(g).blend(light.col)
                                     );
                                 }

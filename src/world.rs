@@ -75,6 +75,20 @@ impl Engine {
             [0.0, 0.0, 0.0, 1.0],
         ]
     }
+    pub fn xyz_rot(x:f32, y:f32, z:f32) -> [[f32;4];4]{
+        let zcos = z.cos();
+        let zsin = z.sin();
+        let xcos = x.cos();
+        let xsin = x.sin();
+        let ycos = y.cos();
+        let ysin = y.sin();
+        [
+            [ycos*zcos, -zsin*ycos, ysin, 0.0],
+            [zcos*xsin*ysin+zsin*xcos, zcos*xcos-zsin*xsin*ysin, -xsin*ycos, 0.0],
+            [zsin*xsin-zcos*xcos*ysin, zsin*xcos*ysin+zcos*xsin, xcos*ycos, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ]
+    }
     pub fn sort_objs(&mut self) {
         let cpos = self.camera.pos;
         self.objects.sort_by(|a, b| {
@@ -317,6 +331,7 @@ pub fn point_at(pos: [f32; 4], target: [f32; 4], up: [f32; 4]) -> [[f32; 4]; 4] 
         pos,
     ]
 }
+
 pub fn quick_inv(m: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
     //    mat4x4 matrix;
     //    matrix.m[0][0] = m.m[0][0]; matrix.m[0][1] = m.m[1][0]; matrix.m[0][2] = m.m[2][0]; matrix.m[0][3] = 0.0f;

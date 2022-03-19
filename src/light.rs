@@ -35,9 +35,6 @@ impl Light {
             .multiply_mat(self.look_mat)
             .multiply_mat(self.proj_mat);
 
-        if tri.normal().dot_product(self.dir) >= 0.0 {
-            return;
-        }
 
         let t03 = 1.0 / (t.ps[0][3] + 1.0);
         let t13 = 1.0 / (t.ps[1][3] + 1.0);

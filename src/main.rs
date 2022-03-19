@@ -21,7 +21,7 @@ use sdl2::gfx::framerate::FPSManager;
 use sdl2::gfx::primitives::DrawRenderer;
 
 mod world;
-use world::{Engine, Mesh, Camera, vec_intersect_plane, clip_tri, quick_inv, point_at};
+use world::{Engine, Mesh, Camera, vec_intersect_plane, clip_tri, quick_inv, point_at,};
 mod ops;
 use ops::{Tri3d, Vec3, operations4x4};
 mod drawing;
@@ -79,7 +79,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     }
     r
 }
-pub const RES_MOD : i32 = 4;
+pub const RES_MOD : i32 = 2;
 fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
@@ -113,7 +113,7 @@ fn main() {
     let player_cam = Camera{
         fov : 90.0,
         pos : [10.0, 0.0, 6.0, 1.0],
-        dir : [-1.0, 0.0, 0.0, 1.0],
+        dir : [0.0, 0.0, 1.0, 1.0],
         vel : [0.0, 0.0, 0.0, 0.0],
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
@@ -135,30 +135,20 @@ fn main() {
     };
 
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.25).translate([6.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([6.0, 0.0, 5.0, 0.0]));
     crate::world::estimate_normals(&mut engine.objects[1]);
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/kanye west.jpg".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
-    //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([10.0, 1.0, 10.0,  1.0]).translate([0.0, -5.0, 5.0, 0.0]));
+    engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
     
     
     engine.lights.push(
         Light::new(
-            [20.0, 0.0, -15.0, 1.0], 
-            Color::RGB(0, 255, 0), 
-            [-1.0, 0.0, 1.0, 1.0].normalize(),
-            //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
-            world::matrix3d_perspective(90.0, 50.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32),
-            
-        )
-    );
-    engine.lights.push(
-        Light::new(
-            [20.0, 0.0, 25.0, 1.0], 
-            Color::RGB(255, 0, 255), 
-            [-1.0, 0.0, -1.0, 1.0].normalize(),
+            [0.0, 20.0, 5.0, 1.0], 
+            Color::RGB(255, 255, 255), 
+            [0.0, -1.0, 0.1, 1.0].normalize(),
             //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
             world::matrix3d_perspective(90.0, 50.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32),
             
@@ -276,8 +266,8 @@ fn main() {
                     let win = canvas.window();
                     let s = canvas.output_size().unwrap();
                     mouse.warp_mouse_in_window(win, s.0 as i32/2, s.1 as i32/2);
-                    engine.camera.rot_vel[0] += ((s.1 as i32/2-y) as f32).to_radians(); 
-                    engine.camera.rot_vel[1] += ((s.0 as i32/2-x) as f32).to_radians();
+                    engine.camera.rot_vel[0] += ((y-s.1 as i32/2) as f32).to_radians(); 
+                    engine.camera.rot_vel[1] += ((x-s.0 as i32/2) as f32).to_radians();
                     
                 },
                 
@@ -292,13 +282,11 @@ fn main() {
         let mut cam = &mut engine.camera;
         
         {
-            //rotvel in radians
-            //dir is direction
-            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0])+cam.rot_vel[2]*(1.0-cam.dir[2]), -cam.rot_vel[1], cam.rot_vel[2]*cam.dir[2]-cam.rot_vel[0]*cam.dir[0], 1.0].normalize().scale_c(rspeed/fps);
+            //modify the x and z rot based on the y rot
+            let rvel = [cam.rot_vel[0]*(1.0-cam.dir[0].powi(2)).sqrt(), cam.rot_vel[1], cam.rot_vel[2]*(1.0-cam.dir[2].powi(2)).sqrt(), 1.0].normalize().scale_c(rspeed/fps);
             cam.dir = cam.dir
-                .multiply_mat(Engine::z_rot(rvel[2]).multiply(Engine::y_rot(rvel[1])).multiply(Engine::x_rot(rvel[0])))
+                .multiply_mat(Engine::xyz_rot(rvel[0], rvel[1], rvel[2]))
             ;
-
             let cam_fwd = cam.dir;
             let cam_up = world_up.subtract(cam.dir.scale_c(world_up.dot_product(cam.dir))).normalize();
             let cam_right = cam_up.cross_product(cam.dir).normalize();

@@ -204,6 +204,8 @@ fn determinant3x3(mat:[[f32;3];3])->f32{
         - mat[2][0]*mat[1][1]*mat[0][2] - mat[1][0]*mat[0][1]*mat[2][2] - mat[0][0]*mat[2][1]*mat[1][2]
 }
 
+
+
 pub trait operations4x4 {
     fn scale(self, scalar:f32)->Self;
     fn multiply(self, mat: Self) -> Self;
