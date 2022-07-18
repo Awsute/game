@@ -475,14 +475,14 @@ pub fn clip_tri(
         out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
         out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
 
-        //out_tris[0].col = Color::RED;
+        out_tris[0].col = Color::RED;
         return 1;
     } else if in_points.len() == 2 {
         out_tris[0] = in_tri;
         out_tris[1] = in_tri;
 
-        //out_tris[0].col = Color::BLUE;
-        //out_tris[1].col = Color::GREEN;
+        out_tris[0].col = Color::BLUE;
+        out_tris[1].col = Color::GREEN;
 
         let ab = vec_intersect_plane(plane_p, plane_n, in_points2d[1], out_points2d[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[0]);

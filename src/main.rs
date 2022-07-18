@@ -79,7 +79,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     }
     r
 }
-pub const RES_MOD : i32 = 2;
+pub const RES_MOD : i32 = 8;
 fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
@@ -112,8 +112,8 @@ fn main() {
     let max_fps = 60_u32;
     let player_cam = Camera{
         fov : 90.0,
-        pos : [10.0, 0.0, 6.0, 1.0],
-        dir : [0.0, 0.0, 1.0, 1.0],
+        pos : [10.0, 0.0, 5.0, 1.0],
+        dir : [-1.0, 0.0, 0.0, 1.0],
         vel : [0.0, 0.0, 0.0, 0.0],
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
@@ -136,19 +136,19 @@ fn main() {
 
     
     engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([6.0, 0.0, 5.0, 0.0]));
-    crate::world::estimate_normals(&mut engine.objects[1]);
+    //engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([6.0, 0.0, 5.0, 0.0]));
+    //crate::world::estimate_normals(&mut engine.objects[1]);
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([10.0, 1.0, 10.0,  1.0]).translate([0.0, -5.0, 5.0, 0.0]));
-    engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
+    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
     
     
     
     engine.lights.push(
         Light::new(
-            [0.0, 20.0, 5.0, 1.0], 
+            [10.0, 0.0, 5.0, 1.0], 
             Color::RGB(255, 255, 255), 
-            [0.0, -1.0, 0.1, 1.0].normalize(),
+            [-1.0, 0.0, 0.0, 1.0].normalize(),
             //world::matrix3d_ortho(20.0, 20.0, 0.0, 50.0)
             world::matrix3d_perspective(90.0, 50.0, 1.0, light::SHADOW_RESOLUTION.0 as f32, light::SHADOW_RESOLUTION.1 as f32),
             
@@ -307,21 +307,22 @@ fn main() {
        
         let aspect = cam.window_height/cam.window_width;
         let r = cam.fov.to_radians()*0.5;
-        let rcos = r.cos();
-        let rsin = r.sin();
         let rtan = r.tan();
-        let zrat = cam.render_distance / (cam.render_distance - cam.clip_distance);
-        let z = (-cam.clip_distance*zrat+zrat)/cam.clip_distance;
+        let z = cam.clip_distance;
+        let w = z*rtan;
+        let a = w*z/(w.powi(2)+z.powi(2));
+        let z_a = z*cam.render_distance/(cam.render_distance-z);
+        let z_p = z*(z+z_a)/z_a;
         let w_clip = [
             
             [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
-            [[0.0, 0.0, cam.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 0.0, z_p, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[0.0, cam.clip_distance*rsin/aspect+aspect, cam.clip_distance, 1.0], [0.0, -rsin, rcos, 1.0]],
-            [[0.0, -cam.clip_distance*rsin/aspect-aspect, cam.clip_distance, 1.0], [0.0, rsin, rcos, 1.0]],
+            [[2.0, 0.0, z_p, 1.0], [-rtan/aspect, 0.0, z_a, 1.0]],
+            [[-2.0, 0.0, z_p, 1.0], [rtan/aspect, 0.0, z_a, 1.0]],
             
-            [[-cam.clip_distance*rsin*aspect-aspect, 0.0, cam.clip_distance, 1.0], [rsin*aspect, 0.0, rcos, 1.0]],
-            [[cam.clip_distance*rsin*aspect+aspect, 0.0, cam.clip_distance, 1.0], [-rsin*aspect, 0.0, rcos, 1.0]],
+            [[0.0, -2.0, z_p, 1.0], [0.0, rtan, z_a, 1.0]],
+            [[0.0, 2.0, z_p, 1.0], [0.0, -rtan, z_a, 1.0]],
 
         ];
 

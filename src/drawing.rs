@@ -231,7 +231,7 @@ impl DrawTri for WindowCanvas {
                                 let mut add_col : Vec<Color> = Vec::new();
                                 for light in &engine.lights {
                                     let dp = -norm.dot_product(light.dir);
-
+                                    
                                     let r = norm
                                         .scale_c(2.0 * dp)
                                         .add(light.dir)
