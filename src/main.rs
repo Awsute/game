@@ -304,15 +304,6 @@ fn main() {
 
         
         //in view space
-       
-        let aspect = cam.window_height/cam.window_width;
-        let r = cam.fov.to_radians()*0.5;
-        let rtan = r.tan();
-        let z = cam.clip_distance;
-        let w = z*rtan;
-        let a = w*z/(w.powi(2)+z.powi(2));
-        let z_a = z*cam.render_distance/(cam.render_distance-z);
-        let z_p = z*(z+z_a)/z_a;
         let w_clip = [
             
             [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, -1.0, 1.0]],
