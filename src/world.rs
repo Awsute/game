@@ -380,9 +380,11 @@ pub fn clip_tri(
 
     let dist = |p: [f32; 4]| -> f32 { p.dot_product(plane_n) - plane_n.dot_product(plane_p) };
     
-    let in_tri2d = in_tri.multiply_mat(mat3d);
-
-
+    let mut in_tri2d = in_tri.multiply_mat(mat3d);
+    let t03 = 1.0/in_tri2d.ps[0][3]; let t13 = 1.0/in_tri2d.ps[1][3]; let t23 = 1.0/in_tri2d.ps[2][3];
+    in_tri2d.ps[0] = in_tri2d.ps[0].scale_c(t03);
+    in_tri2d.ps[1] = in_tri2d.ps[1].scale_c(t13);
+    in_tri2d.ps[2] = in_tri2d.ps[2].scale_c(t23);
     
     let mut in_points = Vec::new();
     let mut in_points2d = Vec::new();
@@ -475,14 +477,14 @@ pub fn clip_tri(
         out_tris[0].ns[1] = out_ns[0].subtract(in_ns[0]).scale_c(tab).add(in_ns[0]);
         out_tris[0].ns[2] = out_ns[1].subtract(in_ns[0]).scale_c(tac).add(in_ns[0]);
 
-        out_tris[0].col = Color::RED;
+        //out_tris[0].col = Color::RED;
         return 1;
     } else if in_points.len() == 2 {
         out_tris[0] = in_tri;
         out_tris[1] = in_tri;
 
-        out_tris[0].col = Color::BLUE;
-        out_tris[1].col = Color::GREEN;
+        //out_tris[0].col = Color::BLUE;
+        //out_tris[1].col = Color::GREEN;
 
         let ab = vec_intersect_plane(plane_p, plane_n, in_points2d[1], out_points2d[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[0]);

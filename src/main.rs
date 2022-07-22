@@ -315,14 +315,14 @@ fn main() {
         let z_p = z*(z+z_a)/z_a;
         let w_clip = [
             
-            [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
-            [[0.0, 0.0, z_p, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, -1.0, 1.0]],
+            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[2.0, 0.0, z_p, 1.0], [-rtan/aspect, 0.0, z_a, 1.0]],
-            [[-2.0, 0.0, z_p, 1.0], [rtan/aspect, 0.0, z_a, 1.0]],
+            [[-1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+            [[1.0, 0.0, 0.0, 1.0], [-1.0, 0.0, 0.0, 1.0]],
             
-            [[0.0, -2.0, z_p, 1.0], [0.0, rtan, z_a, 1.0]],
-            [[0.0, 2.0, z_p, 1.0], [0.0, -rtan, z_a, 1.0]],
+            [[0.0, 1.0, 0.0, 1.0], [0.0, -1.0, 0.0, 1.0]],
+            [[0.0, -1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
 
         ];
 
@@ -355,9 +355,16 @@ fn main() {
             let tr = [ew, eh, 1.0, 1.0];
 
             for i in 0..engine.objects.len(){
+
+
                 let obj = engine.objects[i].multiply_mat(cam_mat);
                 let otex : Surface = LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
+                
+                
+                
                 for j in 0..obj.tris.len(){
+                    
+
                     let normal = obj.tris[j].normal();
                     if normal.dot_product(obj.tris[j].center()) >= 0.0{
                         let mut clipped = vec![obj.tris[j]];
@@ -372,12 +379,12 @@ fn main() {
                             }
                         }
                         for tri in clipped{
-                            if (tri.trs-1.0).abs() > f32::EPSILON{
+                            if (tri.trs-1.0).abs() > f32::EPSILON && !(tri.ps[0][2] <= 0.0 || tri.ps[1][2] <= 0.0 || tri.ps[2][2] <= 0.0){
 
                                 let mut t = tri.multiply_mat(mat3d);
                                 let t03 = 1.0/t.ps[0][3]; let t13 = 1.0/t.ps[1][3]; let t23 = 1.0/t.ps[2][3];
                                 t.uvs = tri.uvs;
-
+            
                                 t.uvs[0][1] *= t03;
                                 t.uvs[1][1] *= t13;
                                 t.uvs[2][1] *= t23;
