@@ -4,13 +4,14 @@ use crate::RES_MOD;
 use crate::{Tri3d, Vec3};
 use sdl2::rect::Rect;
 use sdl2::gfx::primitives::DrawRenderer;
+use sdl2::sys::SDL_ThreadFunction;
 use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
 use crate::light::{SHADOW_RESOLUTION, SPREAD_VAL};
 use crate::ops::clamp;
 use crate::avg_cols;
 use std::mem::swap;
-
-
+use std::thread;
+use std::time::{Duration, Instant};
 pub trait DrawTri {
     fn textured_triangle(
         &mut self,
@@ -29,6 +30,8 @@ impl DrawTri for WindowCanvas {
         engine: &mut Engine,
         tri_info: Tri3d,
     ) {
+        //let start = Instant::now();
+        
         let mut point = Point::new(0, 0);
         let s = (
             engine.camera.window_width as i32,
@@ -41,7 +44,6 @@ impl DrawTri for WindowCanvas {
         let ps = tri.ps;
         let uvs = tri.uvs;
 
-        let ambient = tri_info.col.avg(engine.ambient);
 
         let mut c1 = ps[0];
         let mut c2 = ps[1];
@@ -138,7 +140,7 @@ impl DrawTri for WindowCanvas {
             dcv_step = v3.subtract(v2).scale_c(dc);
             lc_step = l3.subtract(l2).scale_c(dc);
         }
-
+        
         for y in c1[1] as i32 + 1..c3[1] as i32 + 1 {
             if y > 0 && y < s.1 {
                 point.y = y;
@@ -196,7 +198,7 @@ impl DrawTri for WindowCanvas {
                     swap(&mut point_s, &mut point_e);
                 }
                 let tstep = 1.0 / (bx - ax) as f32;
-                
+                let mut add_col : Vec<Color> = vec![engine.ambient, tri.col];
                 for x in ax..bx {
                     if x > 0 && x < s.0 {
                         point.x = x;
@@ -228,14 +230,11 @@ impl DrawTri for WindowCanvas {
                                     .scale_c(1.0 / tex_w);
                                 
                                 let cpoint = engine.camera.pos.subtract(point).normalize();
-                                let mut add_col : Vec<Color> = Vec::new();
+                                
                                 for light in &engine.lights {
                                     let dp = -norm.dot_product(light.dir);
                                     
-                                    let r = norm
-                                        .scale_c(2.0 * dp)
-                                        .add(light.dir)
-                                        .normalize()
+                                    let r = [norm[0]*2.0*dp+light.dir[0], norm[1]*2.0*dp+light.dir[1], norm[2]*2.0*dp+light.dir[2], 1.0]
                                         .dot_product(
                                             cpoint
                                         );
@@ -253,7 +252,7 @@ impl DrawTri for WindowCanvas {
                                         let f1 = (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5;
                                         let d_val = t[2] * t3;
                                         let mut l = 0.0;
-                                        let iters = 4.0;
+                                        let iters = 16.0;
                                         for item in POISSON_DISK.iter().take(iters as usize) { //make the loop customizable (1 to 16 iters)
                                             let ind = (f0 + item[0] * SPREAD_VAL) as usize
                                                 + SHADOW_RESOLUTION.0
@@ -268,15 +267,15 @@ impl DrawTri for WindowCanvas {
                                         l
                                     };
                                     add_col.push(
-                                        tri_info.col.scale(dp) //diff
-                                            .add(Color::from_f32_greyscale(tri_info.rfl*r.powi(3))) //modif
+                                        tri.col.scale(dp) //diff
+                                            .add(Color::from_f32_greyscale(tri.rfl*r.powi(5))) //modif
                                         .scale(g).blend(light.col)
                                     );
                                 }
-                                add_col.extend([Color::RGB(buffer[ind], buffer[ind + 1], buffer[ind + 2]), ambient]);
+                                add_col.push(Color::RGB(buffer[ind], buffer[ind + 1], buffer[ind + 2]));
                                 let pot_col =
                                     avg_cols(&add_col);
-
+                                
                                 if tex_w < d_buf && tr_buf.0 > 0.0 {
                                     tr_buf.1.scale(1.0 - tr_buf.0).add(pot_col.scale(tr_buf.0))
                                 } else if tex_w >= d_buf && tri_info.trs > 0.0 {
@@ -288,22 +287,25 @@ impl DrawTri for WindowCanvas {
                                     pot_col
                                 }
                             } else {
-                                ambient
+                                engine.ambient
                             };
 
                             if tex_w >= d_buf {
                                 engine.depth_buffer[dbi] = tex_w;
-
+                                
                                 engine.transparency_buffer[dbi] =
                                     (-clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
                             }
+                            add_col.drain(2..);
                             self.set_draw_color(col);
                             self.fill_rect(Rect::new(RES_MOD*x, RES_MOD*y, RES_MOD as u32, RES_MOD as u32));
 
                         }
                     }
+                    
                 }
             }
         }
+        //println!("{:?}", start.elapsed());
     }
 }

@@ -1,6 +1,6 @@
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader, Read};
-
+use arrayvec;
 use crate::ops::operations4x4;
 use crate::Tri3d;
 use crate::Vec3;
@@ -386,17 +386,17 @@ pub fn clip_tri(
     in_tri2d.ps[1] = in_tri2d.ps[1].scale_c(t13);
     in_tri2d.ps[2] = in_tri2d.ps[2].scale_c(t23);
     
-    let mut in_points = Vec::new();
-    let mut in_points2d = Vec::new();
+    let mut in_points : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
+    let mut in_points2d : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
 
-    let mut out_points = Vec::new();
-    let mut out_points2d = Vec::new();
+    let mut out_points : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
+    let mut out_points2d : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
 
-    let mut in_uvs = Vec::new();
-    let mut out_uvs = Vec::new();
+    let mut in_uvs : arrayvec::ArrayVec<[f32;3], 3> = arrayvec::ArrayVec::new();
+    let mut out_uvs : arrayvec::ArrayVec<[f32;3], 3> = arrayvec::ArrayVec::new();
 
-    let mut in_ns = Vec::new();
-    let mut out_ns = Vec::new();
+    let mut in_ns : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
+    let mut out_ns : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
 
     let d0 = dist(in_tri2d.ps[0]);
     let d1 = dist(in_tri2d.ps[1]);
