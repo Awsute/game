@@ -1,6 +1,5 @@
 use crate::world::{Engine, POISSON_DISK};
 use crate::ColFuncs;
-use crate::RES_MOD;
 use crate::{Tri3d, Vec3};
 use sdl2::rect::Rect;
 use sdl2::gfx::primitives::DrawRenderer;
@@ -9,6 +8,7 @@ use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
 use crate::light::{SHADOW_RESOLUTION, SPREAD_VAL};
 use crate::ops::clamp;
 use crate::avg_cols;
+use std::convert::TryInto;
 use std::mem::swap;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -297,8 +297,7 @@ impl DrawTri for WindowCanvas {
                                     (-clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
                             }
                             add_col.drain(2..);
-                            self.set_draw_color(col);
-                            self.fill_rect(Rect::new(RES_MOD*x, RES_MOD*y, RES_MOD as u32, RES_MOD as u32));
+                            self.pixel(x.try_into().unwrap(), y.try_into().unwrap(), col);
 
                         }
                     }

@@ -79,7 +79,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
     }
     r
 }
-pub const RES_MOD : i32 = 4;
+//pub const RES_MOD : i32 = 4;
 fn main() {
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
@@ -118,8 +118,8 @@ fn main() {
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
         render_distance : 500.0,
-        window_height : screen_height as f32/RES_MOD as f32,
-        window_width : screen_width as f32/RES_MOD as f32,
+        window_height : screen_height as f32,
+        window_width : screen_width as f32,
         
     };
 
@@ -351,7 +351,6 @@ fn main() {
 
                 let obj = engine.objects[i].multiply_mat(cam_mat);
                 let otex : Surface = LoadSurface::from_file(Path::new(engine.objects[i].tex.as_str())).unwrap();
-                
                 
                 
                 for j in 0..obj.tris.len(){
