@@ -1,6 +1,7 @@
 use sdl2::pixels::Color;
 use crate::ops::{clamp};
 pub trait ColFuncs {
+    fn blend_with_alpha(&self, c: Self) -> Self;
     fn blend(&self, c: Self) -> Self;
     fn avg(&self, c: Self) -> Self;
     fn scale(&self, s: f32) -> Self;
@@ -11,12 +12,20 @@ pub trait ColFuncs {
 
 impl ColFuncs for Color {
     #[inline]
-    fn blend(&self, c: Self) -> Self {
+    fn blend_with_alpha(&self, c: Self) -> Self {
         Color::RGBA(
             (self.r as f32 * (c.r as f32 / 255.0)) as u8,
             (self.g as f32 * (c.g as f32 / 255.0)) as u8,
             (self.b as f32 * (c.b as f32 / 255.0)) as u8,
             (self.a as f32 * (c.a as f32 / 255.0)) as u8,
+        )
+    }
+    #[inline] 
+    fn blend(&self, c: Self) -> Self{
+        Color::RGB(
+            (self.r as f32 * (c.r as f32 / 255.0)) as u8,
+            (self.g as f32 * (c.g as f32 / 255.0)) as u8,
+            (self.b as f32 * (c.b as f32 / 255.0)) as u8,
         )
     }
     #[inline]

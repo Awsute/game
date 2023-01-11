@@ -198,7 +198,11 @@ impl DrawTri for WindowCanvas {
                     swap(&mut point_s, &mut point_e);
                 }
                 let tstep = 1.0 / (bx - ax) as f32;
-                let mut add_col : Vec<Color> = vec![engine.ambient, tri.col];
+
+
+
+                let mut add_col : Vec<Color> = vec![];
+                
                 for x in ax..bx {
                     if x > 0 && x < s.0 {
                         point.x = x;
@@ -239,10 +243,10 @@ impl DrawTri for WindowCanvas {
                                             cpoint
                                         );
                                     let g = { //shadows
-                                        //let dp = dp.powi(2);
-                                        //let b = clamp(0.001 * ((1.0-dp)/dp).sqrt(), 0.001, 0.1);
+                                        let dp = dp.powi(2);
+                                        let b = clamp(0.005 * ((1.0-dp)/dp).sqrt(), 0.0, 0.01);
                                     
-                                        let b = 0.005;
+                                        //let b = 0.005;
                                         let t = point
                                             .multiply_mat(light.look_mat)
                                             .multiply_mat(light.proj_mat);
@@ -268,7 +272,7 @@ impl DrawTri for WindowCanvas {
                                     };
                                     add_col.push(
                                         tri.col.scale(dp) //diff
-                                            .add(Color::from_f32_greyscale(tri.rfl*r.powi(5))) //modif
+                                            .add(Color::from_f32_greyscale(tri.rfl*r.powi(1))) //modif
                                         .scale(g).blend(light.col)
                                     );
                                 }
@@ -276,7 +280,7 @@ impl DrawTri for WindowCanvas {
                                 let pot_col =
                                     avg_cols(&add_col);
                                 
-                                if tex_w < d_buf && tr_buf.0 > 0.0 {
+                                if tex_w <= d_buf && tr_buf.0 > 0.0 {
                                     tr_buf.1.scale(1.0 - tr_buf.0).add(pot_col.scale(tr_buf.0))
                                 } else if tex_w >= d_buf && tri_info.trs > 0.0 {
                                     tr_buf
@@ -290,13 +294,13 @@ impl DrawTri for WindowCanvas {
                                 engine.ambient
                             };
 
-                            if tex_w >= d_buf {
+                            if tex_w > d_buf {
                                 engine.depth_buffer[dbi] = tex_w;
                                 
                                 engine.transparency_buffer[dbi] =
-                                    (-clamp(1.0 - tr_buf.0 - tri_info.trs, -1.0, 0.0), col);
+                                    (clamp(tri_info.trs*(1.0+tr_buf.0),0.0, 1.0), col);
                             }
-                            add_col.drain(2..);
+                            add_col.drain(0..);
                             self.pixel(x.try_into().unwrap(), y.try_into().unwrap(), col);
 
                         }

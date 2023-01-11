@@ -135,16 +135,14 @@ fn main() {
     };
 
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 10.0, 0.0]));
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 0.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 0.3, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
     //engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([6.0, 0.0, 5.0, 0.0]));
     //crate::world::estimate_normals(&mut engine.objects[1]);
     
     //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
 
-
+    
     engine.lights.push(
         Light::new(
             [10.0, 0.0, 5.0, 1.0], 
@@ -176,7 +174,7 @@ fn main() {
 
         false
     };
-
+    
     let cam_moved = |camera : &Camera|->bool{
         camera.vel[0] != 0.0 || camera.vel[1] != 0.0 || camera.vel[2] != 0.0 || camera.rot_vel[0] != 0.0 || camera.rot_vel[1] != 0.0 || camera.rot_vel[2] != 0.0
     };
