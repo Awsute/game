@@ -96,7 +96,7 @@ fn main() {
     let _sdl_image_context = image::init(image::InitFlag::all());
 
     let window = video_subsystem.window("game", 800, 750)
-        .fullscreen_desktop()
+        //.fullscreen_desktop()
         .build()
     .map_err(|e| e.to_string()).unwrap();
 
@@ -120,7 +120,7 @@ fn main() {
         vel : [0.0, 0.0, 0.0, 0.0],
         rot_vel : [0.0, 0.0, 0.0, 0.0],
         clip_distance : 0.5,
-        render_distance : 500.0,
+        render_distance : 250.0,
         window_height : screen_height as f32,
         window_width : screen_width as f32,
         
@@ -333,11 +333,11 @@ fn main() {
             [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
             [[0.0, 0.0, cam.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[aspect*t, 0.0, 0.0, 1.0], [-aspect*t, 0.0, 0.0, 1.0]],
-            [[-aspect*t, 0.0, 0.0, 1.0], [aspect*t, 0.0, 0.0, 1.0]],
+            [[aspect*t, 0.0, cam.clip_distance, 0.0], [-t, 0.0, aspect, 0.0]],
+            [[-aspect*t, 0.0, cam.clip_distance, 0.0], [t, 0.0, aspect, 0.0]],
             
-            [[0.0, -t, 0.0, 1.0], [0.0, t, 0.0, 1.0]],
-            [[0.0, t, 0.0, 1.0], [0.0, -t, 0.0, 1.0]],
+            [[0.0, -t, cam.clip_distance, 0.0], [0.0, t, 1.0, 0.0]],
+            [[0.0, t, cam.clip_distance, 0.0], [0.0, -t, 1.0, 0.0]],
 
         ];
 

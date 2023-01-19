@@ -440,8 +440,8 @@ pub fn clip_tri(
         let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
         let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
         out_tris[0].ps[0] = in_points[0];
-        out_tris[0].ps[1] = in_points[0].add(ab.0);
-        out_tris[0].ps[2] = in_points[0].add(ac.0);
+        out_tris[0].ps[1] = ab.0;
+        out_tris[0].ps[2] = ac.0;
 
         let tab = ab.1;
 
@@ -478,7 +478,7 @@ pub fn clip_tri(
 
         out_tris[0].ps[0] = in_points[0];
         out_tris[0].ps[1] = in_points[1];
-        out_tris[0].ps[2] = in_points[0].add(ac.0);
+        out_tris[0].ps[2] = ac.0;
 
         out_tris[0].uvs[0] = in_uvs[0];
         out_tris[0].uvs[1] = in_uvs[1];
@@ -496,7 +496,7 @@ pub fn clip_tri(
 
         out_tris[1].ps[0] = in_points[1];
         out_tris[1].ps[1] = out_tris[0].ps[2];
-        out_tris[1].ps[2] = in_points[1].add(ab.0);
+        out_tris[1].ps[2] = ab.0;
 
         out_tris[1].uvs[0] = in_uvs[1];
         out_tris[1].uvs[1] = out_tris[0].uvs[2];
