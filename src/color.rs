@@ -86,9 +86,5 @@ pub fn avg_cols(cols : &[Color]) -> Color{
         a = a + c.a as usize;
     }
     let ln = cols.len();
-    a = a/ln;
-    b = b/ln;
-    g = g/ln;
-    r = r/ln;
-    Color::RGBA(r as u8, g as u8, b as u8, a as u8)
+    Color::RGBA((r/ln) as u8, (g/ln) as u8, (b/ln) as u8, (a/ln) as u8)
 }

@@ -9,7 +9,7 @@ fn fisqrt(x: f32)-> f32{
     }
     let x2: f32 = x * 0.5f32;
     let mut i: u32 = unsafe { std::mem::transmute(x) }; // evil floating point bit level hacking
-    i = 0x5f375a86 - (i >> 1);                        // what the frick?
+    i = 0x5f375a86 - (i >> 1);                        // what the fuck?
     let y: f32 = unsafe { std::mem::transmute(i) };
     let y  = y * ( 1.5 - ( x2 * y * y ) );     // 1st iteration
     //let y  = y * ( 1.5 - ( x2 * y * y ) );       // 2nd iteration, this can be removed
@@ -199,113 +199,6 @@ impl Tri3d {
     }
 }
 
-fn determinant3x3(mat:[[f32;3];3])->f32{
-    return mat[0][0]*mat[1][1]*mat[2][2] + mat[1][0]*mat[2][1]*mat[0][2] + mat[2][0]*mat[0][1]*mat[1][2]
-        - mat[2][0]*mat[1][1]*mat[0][2] - mat[1][0]*mat[0][1]*mat[2][2] - mat[0][0]*mat[2][1]*mat[1][2]
-}
-
-
-
-pub trait operations4x4 {
-    fn scale(self, scalar:f32)->Self;
-    fn multiply(self, mat: Self) -> Self;
-    fn add(self, mat: Self) -> Self;
-}
-impl operations4x4 for [[f32; 4]; 4] {
-    fn scale(mut self, scalar:f32)->Self{
-        for i in 0..4{
-            for j in 0..4{
-                self[i][j] = self[i][j]*scalar
-            }
-        }
-        return self
-    }
-   
-    fn multiply(self, mat: Self) -> Self {
-        [
-            [
-                self[0][0] * mat[0][0]
-                    + self[0][1] * mat[1][0]
-                    + self[0][2] * mat[2][0]
-                    + self[0][3] * mat[3][0],
-                self[0][0] * mat[0][1]
-                    + self[0][1] * mat[1][1]
-                    + self[0][2] * mat[2][1]
-                    + self[0][3] * mat[3][1],
-                self[0][0] * mat[0][2]
-                    + self[0][1] * mat[1][2]
-                    + self[0][2] * mat[2][2]
-                    + self[0][3] * mat[3][2],
-                self[0][0] * mat[0][3]
-                    + self[0][1] * mat[1][3]
-                    + self[0][2] * mat[2][3]
-                    + self[0][3] * mat[3][3],
-            ],
-            [
-                self[1][0] * mat[0][0]
-                    + self[1][1] * mat[1][0]
-                    + self[1][2] * mat[2][0]
-                    + self[1][3] * mat[3][0],
-                self[1][0] * mat[0][1]
-                    + self[1][1] * mat[1][1]
-                    + self[1][2] * mat[2][1]
-                    + self[1][3] * mat[3][1],
-                self[1][0] * mat[0][2]
-                    + self[1][1] * mat[1][2]
-                    + self[1][2] * mat[2][2]
-                    + self[1][3] * mat[3][2],
-                self[1][0] * mat[0][3]
-                    + self[1][1] * mat[1][3]
-                    + self[1][2] * mat[2][3]
-                    + self[1][3] * mat[3][3],
-            ],
-            [
-                self[2][0] * mat[0][0]
-                    + self[2][1] * mat[1][0]
-                    + self[2][2] * mat[2][0]
-                    + self[2][3] * mat[3][0],
-                self[2][0] * mat[0][1]
-                    + self[2][1] * mat[1][1]
-                    + self[2][2] * mat[2][1]
-                    + self[2][3] * mat[3][1],
-                self[2][0] * mat[0][2]
-                    + self[2][1] * mat[1][2]
-                    + self[2][2] * mat[2][2]
-                    + self[2][3] * mat[3][2],
-                self[2][0] * mat[0][3]
-                    + self[2][1] * mat[1][3]
-                    + self[2][2] * mat[2][3]
-                    + self[2][3] * mat[3][3],
-            ],
-            [
-                self[3][0] * mat[0][0]
-                    + self[3][1] * mat[1][0]
-                    + self[3][2] * mat[2][0]
-                    + self[3][3] * mat[3][0],
-                self[3][0] * mat[0][1]
-                    + self[3][1] * mat[1][1]
-                    + self[3][2] * mat[2][1]
-                    + self[3][3] * mat[3][1],
-                self[3][0] * mat[0][2]
-                    + self[3][1] * mat[1][2]
-                    + self[3][2] * mat[2][2]
-                    + self[3][3] * mat[3][2],
-                self[3][0] * mat[0][3]
-                    + self[3][1] * mat[1][3]
-                    + self[3][2] * mat[2][3]
-                    + self[3][3] * mat[3][3],
-            ],
-        ]
-    }
-    fn add(self, mat: Self) -> Self{
-        return [
-            [self[0][0]+mat[0][0], self[0][1]+mat[0][1], self[0][2]+mat[0][2], self[0][3]+mat[0][3]],
-            [self[1][0]+mat[0][0], self[1][1]+mat[1][1], self[1][2]+mat[1][2], self[1][3]+mat[1][3]],
-            [self[2][0]+mat[0][0], self[2][1]+mat[2][1], self[2][2]+mat[2][2], self[2][3]+mat[2][3]],
-            [self[3][0]+mat[0][0], self[3][1]+mat[3][1], self[3][2]+mat[3][2], self[3][3]+mat[3][3]],
-        ]
-    }
-}
 pub fn clamp<T:PartialOrd>(val: T, min_val: T, max_val: T) -> T{
     if val > max_val {
         max_val
@@ -314,4 +207,32 @@ pub fn clamp<T:PartialOrd>(val: T, min_val: T, max_val: T) -> T{
     } else {
         val
     }
+}
+pub fn inverse4x4(mat: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
+    let mut inv = [[0.0; 4]; 4];
+    let mut det = 0.0;
+
+    for i in 0..4 {
+        for j in 0..4 {
+            let mut submat = [[0.0; 3]; 3];
+            let mut k = 0;
+            let mut l = 0;
+            for p in 0..4 {
+                for q in 0..4 {
+                    if p != i && q != j {
+                        submat[k][l] = mat[p][q];
+                        l += 1;
+                        if l == 3 {
+                            k += 1;
+                            l = 0;
+                        }
+                    }
+                }
+            }
+            let subdet = submat[0][0]*(submat[1][1]*submat[2][2]-submat[1][2]*submat[2][1]) - submat[0][1]*(submat[1][0]*submat[2][2]-submat[1][2]*submat[2][0]) + submat[0][2]*(submat[1][0]*submat[2][1]-submat[1][1]*submat[2][0]);
+            det += ((i+j) % 2 == 0) as i32 as f32 * subdet * mat[i][j];
+            inv[j][i] = ((((i+j) % 2) == 0) as i32 as f32 * subdet) / det;
+        }
+    }
+    inv
 }

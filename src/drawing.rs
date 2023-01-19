@@ -1,10 +1,10 @@
-use crate::world::{Engine, POISSON_DISK};
+use crate::world::{Engine};
 use crate::ColFuncs;
 use crate::{Tri3d, Vec3};
 use sdl2::rect::Rect;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::sys::SDL_ThreadFunction;
-use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point};
+use sdl2::{pixels::Color, render::WindowCanvas, surface::Surface, rect::Point, };
 use crate::light::{SHADOW_RESOLUTION, SPREAD_VAL};
 use crate::ops::clamp;
 use crate::avg_cols;
@@ -19,6 +19,7 @@ pub trait DrawTri {
         surf: &Surface,
         engine: &mut Engine,
         tri_info: Tri3d,
+        tex_buffer: &mut Vec<u8>
     );
 }
 impl DrawTri for WindowCanvas {
@@ -29,9 +30,31 @@ impl DrawTri for WindowCanvas {
         surf: &Surface,
         engine: &mut Engine,
         tri_info: Tri3d,
+        tex_buffer: &mut Vec<u8>
     ) {
-        //let start = Instant::now();
+        let iters = 16.0;
+
+        let POISSON_DISK = &[
+            [-0.942_016, -0.399_062],
+            [0.945_586, -0.768_907],
+            [-0.094_184, -0.929_388],
+            [0.344_959, 0.293_877],
+            [-0.915_885, 0.457_714],
+            [-0.815_442, -0.879_124],
+            [-0.382_775, 0.276_768],
+            [0.974_843, 0.756_483],
+            [0.443_233, -0.975_115],
+            [0.537_429, -0.473_734],
+            [-0.264_969, -0.418_930],
+            [0.791_975, 0.190_901],
+            [-0.241_888, 0.997_065],
+            [-0.814_099, 0.914_375],
+            [0.199_841, 0.786_413],
+            [0.143_831, -0.141_007],
+        ];
         
+        //let start = Instant::now();
+        let mut add_col : Vec<Color> = vec![tri_info.col];
         let mut point = Point::new(0, 0);
         let s = (
             engine.camera.window_width as i32,
@@ -124,7 +147,6 @@ impl DrawTri for WindowCanvas {
             du2_step = (i3[0] - i1[0]) * db;
             dv2_step = (i3[1] - i1[1]) * db;
             dw2_step = (i3[2] - i1[2]) * db;
-
             dbv_step = v3.subtract(v1).scale_c(db);
             lb_step = l3.subtract(l1).scale_c(db);
         };
@@ -199,10 +221,6 @@ impl DrawTri for WindowCanvas {
                 }
                 let tstep = 1.0 / (bx - ax) as f32;
 
-
-
-                let mut add_col : Vec<Color> = vec![];
-                
                 for x in ax..bx {
                     if x > 0 && x < s.0 {
                         point.x = x;
@@ -243,10 +261,10 @@ impl DrawTri for WindowCanvas {
                                             cpoint
                                         );
                                     let g = { //shadows
-                                        let dp = dp.powi(2);
-                                        let b = clamp(0.005 * ((1.0-dp)/dp).sqrt(), 0.0, 0.01);
+                                        //let dp1 = dp.powi(2);
+                                        //let b = clamp(0.005 * ((1.0-dp1)/dp1).sqrt(), 0.0, 0.01);
                                     
-                                        //let b = 0.005;
+                                        let b = 0.005;
                                         let t = point
                                             .multiply_mat(light.look_mat)
                                             .multiply_mat(light.proj_mat);
@@ -256,23 +274,22 @@ impl DrawTri for WindowCanvas {
                                         let f1 = (t[1] * t3 + 1.0) * SHADOW_RESOLUTION.1 as f32 * 0.5;
                                         let d_val = t[2] * t3;
                                         let mut l = 0.0;
-                                        let iters = 16.0;
-                                        for item in POISSON_DISK.iter().take(iters as usize) { //make the loop customizable (1 to 16 iters)
+                                        for item in POISSON_DISK { //make the loop customizable (1 to 16 iters)
                                             let ind = (f0 + item[0] * SPREAD_VAL) as usize
                                                 + SHADOW_RESOLUTION.0
                                                     * (f1 + item[1] * SPREAD_VAL) as usize;
-                                            if ind < SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1
+                                            if ind < light.buf.len()
                                                 && d_val - b <= light.buf[ind]
                                                 && d_val >= b
                                             {
-                                                l += 1.0 / iters;
+                                                l += 1.0;
                                             }
                                         }
-                                        l
+                                        l/iters
                                     };
                                     add_col.push(
                                         tri.col.scale(dp) //diff
-                                            .add(Color::from_f32_greyscale(tri.rfl*r.powi(1))) //modif
+                                            .add(Color::from_f32_greyscale(tri.rfl*r.powi(5))) //modif
                                         .scale(g).blend(light.col)
                                     );
                                 }
@@ -300,8 +317,12 @@ impl DrawTri for WindowCanvas {
                                 engine.transparency_buffer[dbi] =
                                     (clamp(tri_info.trs*(1.0+tr_buf.0),0.0, 1.0), col);
                             }
-                            add_col.drain(0..);
-                            self.pixel(x.try_into().unwrap(), y.try_into().unwrap(), col);
+                            add_col.drain(1..);
+                            let buf_index = 3*(x+s.0*y) as usize;
+                            tex_buffer[buf_index] = col.r;
+                            tex_buffer[1+buf_index] = col.g;
+                            tex_buffer[2+buf_index] = col.b;
+                            //self.pixel(x.try_into().unwrap(), y.try_into().unwrap(), col).unwrap();
 
                         }
                     }

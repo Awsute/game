@@ -1,5 +1,5 @@
 use crate::ops::{clamp, Tri3d, Vec3};
-use crate::world::{quick_inv, point_at, POISSON_DISK};
+use crate::world::{quick_inv, point_at};
 use sdl2::pixels::Color;
 use std::mem::swap;
 
@@ -13,7 +13,7 @@ pub struct Light {
     pub dir: [f32; 4],
     pub proj_mat: [[f32; 4]; 4],
     pub look_mat : [[f32; 4]; 4],
-    pub buf: Vec<f32>,
+    pub buf: [f32; SHADOW_RESOLUTION.0*SHADOW_RESOLUTION.1],
 }
 
 impl Light {
@@ -24,7 +24,7 @@ impl Light {
             dir,
             proj_mat,
             look_mat : quick_inv(point_at(pos, pos.add(dir), [0.0, 1.0, 0.0, 1.0])),
-            buf: vec![1.0; SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1],
+            buf: [1.0; SHADOW_RESOLUTION.0 * SHADOW_RESOLUTION.1],
         }
     }
     #[inline]

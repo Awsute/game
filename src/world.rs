@@ -1,7 +1,6 @@
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader, Read};
 use arrayvec;
-use crate::ops::operations4x4;
 use crate::Tri3d;
 use crate::Vec3;
 use sdl2::pixels::Color;
@@ -380,17 +379,10 @@ pub fn clip_tri(
 
     let dist = |p: [f32; 4]| -> f32 { p.dot_product(plane_n) - plane_n.dot_product(plane_p) };
     
-    let mut in_tri2d = in_tri.multiply_mat(mat3d);
-    let t03 = 1.0/in_tri2d.ps[0][3]; let t13 = 1.0/in_tri2d.ps[1][3]; let t23 = 1.0/in_tri2d.ps[2][3];
-    in_tri2d.ps[0] = in_tri2d.ps[0].scale_c(t03);
-    in_tri2d.ps[1] = in_tri2d.ps[1].scale_c(t13);
-    in_tri2d.ps[2] = in_tri2d.ps[2].scale_c(t23);
     
     let mut in_points : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
-    let mut in_points2d : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
 
     let mut out_points : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
-    let mut out_points2d : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
 
     let mut in_uvs : arrayvec::ArrayVec<[f32;3], 3> = arrayvec::ArrayVec::new();
     let mut out_uvs : arrayvec::ArrayVec<[f32;3], 3> = arrayvec::ArrayVec::new();
@@ -398,32 +390,28 @@ pub fn clip_tri(
     let mut in_ns : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
     let mut out_ns : arrayvec::ArrayVec<[f32;4], 3> = arrayvec::ArrayVec::new();
 
-    let d0 = dist(in_tri2d.ps[0]);
-    let d1 = dist(in_tri2d.ps[1]);
-    let d2 = dist(in_tri2d.ps[2]);
+    let d0 = dist(in_tri.ps[0]);
+    let d1 = dist(in_tri.ps[1]);
+    let d2 = dist(in_tri.ps[2]);
 
     if d0 >= 0.0 {
         in_points.push(in_tri.ps[0]);
-        in_points2d.push(in_tri2d.ps[0]);
 
         in_uvs.push(in_tri.uvs[0]);
         in_ns.push(in_tri.ns[0]);
     } else {
         out_points.push(in_tri.ps[0]);
 
-        out_points2d.push(in_tri2d.ps[0]);
         out_uvs.push(in_tri.uvs[0]);
         out_ns.push(in_tri.ns[0]);
     }
 
     if d1 >= 0.0 {
         in_points.push(in_tri.ps[1]);
-        in_points2d.push(in_tri2d.ps[1]);
         in_uvs.push(in_tri.uvs[1]);
         in_ns.push(in_tri.ns[1]);
     } else {
         out_points.push(in_tri.ps[1]);
-        out_points2d.push(in_tri2d.ps[1]);
 
         out_uvs.push(in_tri.uvs[1]);
         out_ns.push(in_tri.ns[1]);
@@ -431,13 +419,11 @@ pub fn clip_tri(
 
     if d2 >= 0.0 {
         in_points.push(in_tri.ps[2]);
-        in_points2d.push(in_tri2d.ps[2]);
 
         in_uvs.push(in_tri.uvs[2]);
         in_ns.push(in_tri.ns[2]);
     } else {
         out_points.push(in_tri.ps[2]);
-        out_points2d.push(in_tri2d.ps[2]);
 
         out_uvs.push(in_tri.uvs[2]);
         out_ns.push(in_tri.ns[2]);
@@ -451,11 +437,11 @@ pub fn clip_tri(
     } else if in_points.len() == 1 {
         out_tris[0] = in_tri;
 
-        let ab = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[0]);
-        let ac = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[1]);
+        let ab = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
+        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[1]);
         out_tris[0].ps[0] = in_points[0];
-        out_tris[0].ps[1] = in_points[0].add(out_points[0].subtract(in_points[0]).scale_c(ab.1));
-        out_tris[0].ps[2] = in_points[0].add(out_points[1].subtract(in_points[0]).scale_c(ac.1));
+        out_tris[0].ps[1] = in_points[0].add(ab.0);
+        out_tris[0].ps[2] = in_points[0].add(ac.0);
 
         let tab = ab.1;
 
@@ -486,13 +472,13 @@ pub fn clip_tri(
         //out_tris[0].col = Color::BLUE;
         //out_tris[1].col = Color::GREEN;
 
-        let ab = vec_intersect_plane(plane_p, plane_n, in_points2d[1], out_points2d[0]);
-        let ac = vec_intersect_plane(plane_p, plane_n, in_points2d[0], out_points2d[0]);
+        let ab = vec_intersect_plane(plane_p, plane_n, in_points[1], out_points[0]);
+        let ac = vec_intersect_plane(plane_p, plane_n, in_points[0], out_points[0]);
         let tac = ac.1;
 
         out_tris[0].ps[0] = in_points[0];
         out_tris[0].ps[1] = in_points[1];
-        out_tris[0].ps[2] = in_points[0].add(out_points[0].subtract(in_points[0]).scale_c(tac));
+        out_tris[0].ps[2] = in_points[0].add(ac.0);
 
         out_tris[0].uvs[0] = in_uvs[0];
         out_tris[0].uvs[1] = in_uvs[1];
@@ -510,7 +496,7 @@ pub fn clip_tri(
 
         out_tris[1].ps[0] = in_points[1];
         out_tris[1].ps[1] = out_tris[0].ps[2];
-        out_tris[1].ps[2] = in_points[1].add(out_points[0].subtract(in_points[1]).scale_c(tab));
+        out_tris[1].ps[2] = in_points[1].add(ab.0);
 
         out_tris[1].uvs[0] = in_uvs[1];
         out_tris[1].uvs[1] = out_tris[0].uvs[2];
@@ -558,21 +544,4 @@ pub fn estimate_normals(mesh: &mut Mesh) {
     }
 }
 
-pub const POISSON_DISK: [[f32; 2]; 16] = [
-    [-0.942_016, -0.399_062],
-    [0.945_586, -0.768_907],
-    [-0.094_184, -0.929_388],
-    [0.344_959, 0.293_877],
-    [-0.915_885, 0.457_714],
-    [-0.815_442, -0.879_124],
-    [-0.382_775, 0.276_768],
-    [0.974_843, 0.756_483],
-    [0.443_233, -0.975_115],
-    [0.537_429, -0.473_734],
-    [-0.264_969, -0.418_930],
-    [0.791_975, 0.190_901],
-    [-0.241_888, 0.997_065],
-    [-0.814_099, 0.914_375],
-    [0.199_841, 0.786_413],
-    [0.143_831, -0.141_007],
-];
+

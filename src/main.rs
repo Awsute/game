@@ -1,10 +1,13 @@
 //when shipping game, make sure you got everything in the folder with the gameeextern crate sdl2;
 extern crate gl;
 extern crate sdl2;
+
 use sdl2::pixels;
 use sdl2::image;
 use image::{LoadSurface};
 use pixels::{Color};
+use sdl2::pixels::PixelFormatEnum;
+use sdl2::render::TextureAccess;
 use sdl2::video::{Window};
 use sdl2::render::{WindowCanvas};
 use sdl2::audio::{AudioCallback, AudioSpecWAV, AudioCVT, AudioSpecDesired};
@@ -23,7 +26,7 @@ use sdl2::gfx::primitives::DrawRenderer;
 mod world;
 use world::{Engine, Mesh, Camera, vec_intersect_plane, clip_tri, quick_inv, point_at,};
 mod ops;
-use ops::{Tri3d, Vec3, operations4x4};
+use ops::{Tri3d, Vec3};
 mod drawing;
 use drawing::DrawTri;
 mod color;
@@ -104,7 +107,7 @@ fn main() {
         .map_err(|e| e.to_string())
     .unwrap();
     
-
+    let texture_creator = canvas.texture_creator();
     let screen_width = canvas.output_size().unwrap().0 as i32;
     let screen_height = canvas.output_size().unwrap().1 as i32;
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -133,13 +136,34 @@ fn main() {
         lights : Vec::new(),
         ambient : Color::BLACK  
     };
+    let mut ring_buffer = [
+        (
+            texture_creator.create_texture(PixelFormatEnum::RGB24, TextureAccess::Streaming, screen_width as u32, screen_height as u32).unwrap(),
+            vec![0; (screen_height*screen_width*3) as usize]
+        ),
+        (
+            texture_creator.create_texture(PixelFormatEnum::RGB24, TextureAccess::Streaming, screen_width as u32, screen_height as u32).unwrap(),
+            vec![0; (screen_height*screen_width*3) as usize]
+        ),
+        (
+            texture_creator.create_texture(PixelFormatEnum::RGB24, TextureAccess::Streaming, screen_width as u32, screen_height as u32).unwrap(),
+            vec![0; (screen_height*screen_width*3) as usize]
+        ),
+        (
+            texture_creator.create_texture(PixelFormatEnum::RGB24, TextureAccess::Streaming, screen_width as u32, screen_height as u32).unwrap(),
+            vec![0; (screen_height*screen_width*3) as usize]
+        )
+        
+    ];
+    let ring_buffer_length = 1;
+    let mut index = 0;
 
+
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 1.0, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([6.0, 0.0, 5.0, 0.0]));
+    crate::world::estimate_normals(&mut engine.objects[1]);
     
-    engine.objects.push(Mesh::load_obj_file("assets/normalized_teapot.obj".to_string(),"assets/white.png".to_string(), Color::RED, 0.3, 0.0).translate([0.0, 0.0, 5.0, 0.0]));
-    //engine.objects.push(Mesh::load_obj_file("assets/real_sphere.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 1.0, 0.5).translate([6.0, 0.0, 5.0, 0.0]));
-    //crate::world::estimate_normals(&mut engine.objects[1]);
-    
-    //engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
+    engine.objects.push(Mesh::load_obj_file("assets/normalized_cube.obj".to_string(),"assets/white.png".to_string(), Color::WHITE, 0.0, 0.0).scale([1.0, 10.0, 10.0,  1.0]).translate([-5.0, 0.0, 5.0, 0.0]));
     //engine.objects[0].rot_vel = [45_f32.to_radians(), 90_f32.to_radians(), 0.0, 1.0];
 
     
@@ -301,18 +325,19 @@ fn main() {
         
 
 
-        
+        let t = (cam.fov.to_radians()*0.5).tan();
+        let aspect = cam.window_width/cam.window_height;
         //in view space
         let w_clip = [
             
-            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, -1.0, 1.0]],
-            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 0.0, cam.render_distance, 1.0], [0.0, 0.0, -1.0, 1.0]],
+            [[0.0, 0.0, cam.clip_distance, 1.0], [0.0, 0.0, 1.0, 1.0]],
             
-            [[-1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
-            [[1.0, 0.0, 0.0, 1.0], [-1.0, 0.0, 0.0, 1.0]],
+            [[aspect*t, 0.0, 0.0, 1.0], [-aspect*t, 0.0, 0.0, 1.0]],
+            [[-aspect*t, 0.0, 0.0, 1.0], [aspect*t, 0.0, 0.0, 1.0]],
             
-            [[0.0, 1.0, 0.0, 1.0], [0.0, -1.0, 0.0, 1.0]],
-            [[0.0, -1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+            [[0.0, -t, 0.0, 1.0], [0.0, t, 0.0, 1.0]],
+            [[0.0, t, 0.0, 1.0], [0.0, -t, 0.0, 1.0]],
 
         ];
 
@@ -322,7 +347,7 @@ fn main() {
         for o in 0..engine.lights.len(){
             let light  = &engine.lights[o];
             engine.lights[o].look_mat = quick_inv(point_at(light.pos, world_up, light.pos.add(light.dir)));
-            engine.lights[o].buf = vec![1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
+            engine.lights[o].buf = [1.0; light::SHADOW_RESOLUTION.0*light::SHADOW_RESOLUTION.1];
             for i in 0..engine.objects.len(){
                 engine.objects[i] = engine.objects[i].upd(engine.objects[i].vel.scale_c(1.0/fps), engine.objects[i].rot_vel.scale_c(1.0/fps), engine.objects[i].center());
                 for j in 0..engine.objects[i].tris.len(){
@@ -334,10 +359,12 @@ fn main() {
         
         engine.depth_buffer = vec![0.0; (cam.window_height*cam.window_width) as usize];
         engine.transparency_buffer = vec![(1.0, engine.ambient); (cam.window_height*cam.window_width) as usize];
+        let mut current_tex = &mut ring_buffer[index];
+        index = (index+1)%ring_buffer_length;
         
         {
 
-
+            
             let ew = cam.window_width*0.5; let eh = cam.window_height*0.5;
             let cam_pmat = point_at(cam.pos, cam.pos.add(cam.dir), world_up);
             let cam_mat = quick_inv(cam_pmat);
@@ -399,22 +426,24 @@ fn main() {
                                     t,
                                     &otex,
                                     &mut engine,
-                                    etri
+                                    etri,
+                                    &mut current_tex.1
                                 );
-
+                                
+                                
                             }           
                         }
                     }    
                 }
             }
-
-
+            
+            
         }
+        
+        current_tex.0.update(None, current_tex.1.as_slice(), (3*screen_width) as usize);
 
-
-
-
-
+        canvas.copy(&current_tex.0, None, None);
+        current_tex.1 = vec![0; (screen_height*screen_width*3) as usize];
 
         fps_manager.set_framerate(max_fps).unwrap();
         let del = fps_manager.delay();
