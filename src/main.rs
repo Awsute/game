@@ -3,7 +3,7 @@ extern crate gl;
 extern crate sdl2;
 
 use sdl2::pixels;
-use sdl2::image;
+use sdl2::image; 
 use image::{LoadSurface};
 use pixels::{Color};
 use sdl2::pixels::PixelFormatEnum;
@@ -40,6 +40,7 @@ trait Surf{
     fn color_at(&self, x:f32, y:f32)->Color;
     fn apply_fn(&mut self, f:&dyn Fn(u32, u32, u32, u32, u32, Color)->Color);
 }
+
 impl Surf for Surface<'_>{
     fn color_at(&self, x: f32, y: f32)->Color{
         let buf = self.without_lock().unwrap();
@@ -84,6 +85,7 @@ fn gen_terrain(start : [f32;4], end : [f32;4], spacing : [f32;2], func : &dyn Fn
 }
 //pub const RES_MOD : i32 = 4;
 fn main() {
+
     let world_up = [0.0, 1.0, 0.0, 1.0];
     let mut fps_manager = FPSManager::new();
 
@@ -91,6 +93,7 @@ fn main() {
     let list_id_sc = [1.0, 1.0, 1.0, 1.0];
 
     let sdl_context = sdl2::init().unwrap();
+    
     let video_subsystem = sdl_context.video().unwrap();
     let _audio_subsystem = sdl_context.audio().unwrap();
     let _sdl_image_context = image::init(image::InitFlag::all());
